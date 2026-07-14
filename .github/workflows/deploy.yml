@@ -33,7 +33,7 @@ jobs:
             echo "Activating Conda environment 'ft'..."
             # Initialize Conda
             source /home/azureuser/miniconda3/etc/profile.d/conda.sh
-            conda activate ft_jira
+            conda activate ft-jira
             conda info
 
             echo "Installing/Updating dependencies..."
