@@ -1,6 +1,10 @@
-from fastapi import HTTPException
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.security import create_access_token, hash_password, verify_password
 from app.models import User, UserStatus
 from app.repositories import ProjectMemberRepository, ProjectRepository, UserRepository
@@ -10,8 +14,13 @@ from app.schemas import (
     MeResponse,
     ProjectMembershipOut,
     RegisterRequest,
+    UpdateProfileRequest,
     UserBrief,
 )
+
+MAX_AVATAR_BYTES = 3 * 1024 * 1024
+UPLOADS_BASE_PATH = "/jira/uploads"
+AVATAR_IMAGE_DIR = "user-avatars"
 
 
 class AuthService:
@@ -57,6 +66,7 @@ class AuthService:
                 email=user.email,
                 is_super_admin=user.is_super_admin,
                 status=user.status.value,
+                avatar_url=user.avatar_url,
             ),
         )
 
@@ -80,5 +90,48 @@ class AuthService:
             is_super_admin=user.is_super_admin,
             status=user.status.value,
             job_title=user.job_title,
+            avatar_url=user.avatar_url,
             project_memberships=memberships,
         )
+
+    def update_profile(self, user: User, data: UpdateProfileRequest) -> MeResponse:
+        user.name = data.name.strip()
+        user.job_title = data.job_title.strip() if data.job_title else None
+        self.users.save()
+        self.db.refresh(user)
+        return self.me(user)
+
+    async def update_avatar(self, user: User, file: UploadFile) -> MeResponse:
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=422, detail="Only image files can be used as profile photos")
+
+        original_filename = Path(file.filename or "profile-image").name
+        suffix = Path(original_filename).suffix.lower()
+        if suffix not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+            raise HTTPException(status_code=422, detail="Unsupported image type")
+
+        stored_filename = f"{uuid4().hex}{suffix}"
+        upload_dir = Path(settings.upload_dir) / AVATAR_IMAGE_DIR
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        destination = upload_dir / stored_filename
+
+        size = 0
+        try:
+            with destination.open("wb") as out:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_AVATAR_BYTES:
+                        out.close()
+                        destination.unlink(missing_ok=True)
+                        raise HTTPException(
+                            status_code=413,
+                            detail="Profile image must be 3 MB or smaller",
+                        )
+                    out.write(chunk)
+        finally:
+            await file.close()
+
+        user.avatar_url = f"{UPLOADS_BASE_PATH}/{AVATAR_IMAGE_DIR}/{stored_filename}"
+        self.users.save()
+        self.db.refresh(user)
+        return self.me(user)

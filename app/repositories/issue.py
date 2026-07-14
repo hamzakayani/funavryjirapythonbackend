@@ -6,6 +6,7 @@ from app.models import (
     ActivityLog,
     Comment,
     Issue,
+    IssueAttachment,
     IssueStatus,
     IssueType,
     Worklog,
@@ -46,6 +47,7 @@ class IssueRepository:
                 joinedload(Issue.labels),
                 joinedload(Issue.comments).joinedload(Comment.author),
                 joinedload(Issue.worklogs).joinedload(Worklog.user),
+                joinedload(Issue.attachments).joinedload(IssueAttachment.uploaded_by),
                 joinedload(Issue.activities).joinedload(ActivityLog.user),
             )
             .filter(Issue.id == issue_id, Issue.is_archived == False)  # noqa: E712

@@ -17,7 +17,7 @@ class CreateIssueRequest(BaseModel):
     parent_issue_id: Optional[int] = None
     sprint_id: Optional[int] = None
     due_date: Optional[date] = None
-    original_estimate_minutes: Optional[int] = None
+    original_estimate_minutes: Optional[int] = Field(default=None, ge=0)
 
 
 class UpdateIssueRequest(BaseModel):
@@ -30,7 +30,8 @@ class UpdateIssueRequest(BaseModel):
     sprint_id: Optional[int] = None
     parent_issue_id: Optional[int] = None
     story_points: Optional[int] = None
-    remaining_estimate_minutes: Optional[int] = None
+    original_estimate_minutes: Optional[int] = Field(default=None, ge=0)
+    remaining_estimate_minutes: Optional[int] = Field(default=None, ge=0)
     due_date: Optional[date] = None
     labels: Optional[List[str]] = None
 
@@ -83,6 +84,19 @@ class WorklogOut(BaseModel):
         from_attributes = True
 
 
+class IssueAttachmentOut(BaseModel):
+    id: int
+    original_filename: str
+    content_type: str
+    file_size: int
+    file_url: str
+    uploaded_by: UserMini
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class ActivityOut(BaseModel):
     id: int
     action: str
@@ -125,6 +139,7 @@ class IssueOut(BaseModel):
 class IssueDetailOut(IssueOut):
     comments: List[CommentOut] = []
     worklogs: List[WorklogOut] = []
+    attachments: List[IssueAttachmentOut] = []
     activities: List[ActivityOut] = []
     subtasks: List[IssueOut] = []
     parent: Optional[IssueOut] = None

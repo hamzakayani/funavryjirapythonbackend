@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
     cors_origins: str = "http://localhost:3000"
+    upload_dir: str = "uploads"
 
     class Config:
         env_file = ".env"

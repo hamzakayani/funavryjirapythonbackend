@@ -1,8 +1,11 @@
 from datetime import date
+from pathlib import Path
+from uuid import uuid4
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.deps import (
     can_assign_issue,
     can_change_issue_status,
@@ -10,7 +13,7 @@ from app.core.deps import (
     can_manage_project,
     require_project_access,
 )
-from app.models import Comment, Issue, IssueStatus, IssueType, Priority, User, Worklog
+from app.models import Comment, Issue, IssueAttachment, IssueStatus, IssueType, Priority, User, Worklog
 from app.repositories import (
     ActivityLogRepository,
     CommentRepository,
@@ -25,6 +28,7 @@ from app.schemas import (
     CommentOut,
     CommentRequest,
     CreateIssueRequest,
+    IssueAttachmentOut,
     IssueDetailOut,
     IssueOut,
     ReorderBacklogRequest,
@@ -38,6 +42,9 @@ from app.schemas import (
 from app.services.project_service import ProjectService
 
 STATUSES = ["To Do", "In Progress", "In Review", "Done"]
+MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024
+UPLOADS_BASE_PATH = "/jira/uploads"
+REFERENCE_IMAGE_DIR = "issue-attachments"
 
 
 class IssueService:
@@ -73,6 +80,17 @@ class IssueService:
             backlog_order=issue.backlog_order,
             created_at=issue.created_at,
             updated_at=issue.updated_at,
+        )
+
+    def attachment_to_out(self, attachment: IssueAttachment) -> IssueAttachmentOut:
+        return IssueAttachmentOut(
+            id=attachment.id,
+            original_filename=attachment.original_filename,
+            content_type=attachment.content_type,
+            file_size=attachment.file_size,
+            file_url=f"{UPLOADS_BASE_PATH}/{REFERENCE_IMAGE_DIR}/{attachment.stored_filename}",
+            uploaded_by=UserMini(id=attachment.uploaded_by.id, name=attachment.uploaded_by.name),
+            created_at=attachment.created_at,
         )
 
     def search(self, key: str, user: User) -> SearchResult:
@@ -230,6 +248,10 @@ class IssueService:
             )
             for w in sorted(issue.worklogs, key=lambda x: x.created_at, reverse=True)
         ]
+        attachments = [
+            self.attachment_to_out(a)
+            for a in sorted(issue.attachments, key=lambda x: x.created_at, reverse=True)
+        ]
         activities = [
             ActivityOut(
                 id=a.id,
@@ -253,6 +275,7 @@ class IssueService:
             **base.model_dump(),
             comments=comments,
             worklogs=worklogs,
+            attachments=attachments,
             activities=activities,
             subtasks=[self.issue_to_out(s) for s in self.issues.list_subtasks(issue.id)],
             parent=parent_out,
@@ -292,6 +315,7 @@ class IssueService:
             "sprint_id": ("sprint_id", lambda v: v),
             "parent_issue_id": ("parent_issue_id", lambda v: v),
             "story_points": ("story_points", lambda v: v),
+            "original_estimate_minutes": ("original_estimate_minutes", lambda v: v),
             "remaining_estimate_minutes": ("remaining_estimate_minutes", lambda v: v),
             "due_date": ("due_date", lambda v: v),
         }
@@ -397,3 +421,61 @@ class IssueService:
             user=UserMini(id=user.id, name=user.name),
             created_at=wl.created_at,
         )
+
+    async def add_attachment(
+        self, issue_id: int, file: UploadFile, user: User
+    ) -> IssueAttachmentOut:
+        issue = self.issues.get_by_id(issue_id, include_archived=True)
+        if not issue:
+            raise HTTPException(status_code=404, detail="Issue not found")
+        require_project_access(self.db, user, issue.project_id)
+        if not can_edit_issue(self.db, user, issue):
+            raise HTTPException(status_code=403, detail="Cannot attach images to this issue")
+        if not file.content_type or not file.content_type.startswith("image/"):
+            raise HTTPException(status_code=422, detail="Only image files can be attached")
+
+        original_filename = Path(file.filename or "reference-image").name
+        suffix = Path(original_filename).suffix.lower()
+        if suffix not in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+            raise HTTPException(status_code=422, detail="Unsupported image type")
+
+        stored_filename = f"{uuid4().hex}{suffix}"
+        upload_dir = Path(settings.upload_dir) / REFERENCE_IMAGE_DIR
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        destination = upload_dir / stored_filename
+
+        size = 0
+        try:
+            with destination.open("wb") as out:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_REFERENCE_IMAGE_BYTES:
+                        out.close()
+                        destination.unlink(missing_ok=True)
+                        raise HTTPException(
+                            status_code=413,
+                            detail="Reference image must be 5 MB or smaller",
+                        )
+                    out.write(chunk)
+        finally:
+            await file.close()
+
+        attachment = IssueAttachment(
+            issue_id=issue.id,
+            uploaded_by_id=user.id,
+            original_filename=original_filename,
+            stored_filename=stored_filename,
+            content_type=file.content_type,
+            file_size=size,
+        )
+        self.db.add(attachment)
+        self.activities.create(
+            issue_id=issue.id,
+            user_id=user.id,
+            action="attachment_added",
+            new_value=original_filename,
+        )
+        self.db.commit()
+        self.db.refresh(attachment)
+        attachment.uploaded_by = user
+        return self.attachment_to_out(attachment)

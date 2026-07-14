@@ -9,7 +9,7 @@ from app.models.enums import (
 from app.models.user import User
 from app.models.project import Project, ProjectMember
 from app.models.sprint import Sprint
-from app.models.issue import ActivityLog, Comment, Issue, IssueLabel, Worklog
+from app.models.issue import ActivityLog, Comment, Issue, IssueAttachment, IssueLabel, Worklog
 
 __all__ = [
     "UserStatus",
@@ -26,5 +26,6 @@ __all__ = [
     "IssueLabel",
     "Comment",
     "Worklog",
+    "IssueAttachment",
     "ActivityLog",
 ]

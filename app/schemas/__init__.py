@@ -4,6 +4,7 @@ from app.schemas.auth import (
     MeResponse,
     ProjectMembershipOut,
     RegisterRequest,
+    UpdateProfileRequest,
     UserBrief,
 )
 from app.schemas.admin import (
@@ -27,6 +28,7 @@ from app.schemas.issue import (
     CommentOut,
     CommentRequest,
     CreateIssueRequest,
+    IssueAttachmentOut,
     IssueDetailOut,
     IssueOut,
     ReorderBacklogRequest,
@@ -40,6 +42,7 @@ from app.schemas.issue import (
 __all__ = [
     "RegisterRequest",
     "LoginRequest",
+    "UpdateProfileRequest",
     "UserBrief",
     "ProjectMembershipOut",
     "AuthResponse",
@@ -64,6 +67,7 @@ __all__ = [
     "UserMini",
     "CommentOut",
     "WorklogOut",
+    "IssueAttachmentOut",
     "ActivityOut",
     "IssueOut",
     "IssueDetailOut",

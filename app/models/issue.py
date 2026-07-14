@@ -46,6 +46,7 @@ class Issue(Base):
     labels = relationship("IssueLabel", back_populates="issue", cascade="all, delete-orphan")
     comments = relationship("Comment", back_populates="issue", cascade="all, delete-orphan")
     worklogs = relationship("Worklog", back_populates="issue", cascade="all, delete-orphan")
+    attachments = relationship("IssueAttachment", back_populates="issue", cascade="all, delete-orphan")
     activities = relationship("ActivityLog", back_populates="issue", cascade="all, delete-orphan")
 
 
@@ -85,6 +86,22 @@ class Worklog(Base):
 
     issue = relationship("Issue", back_populates="worklogs")
     user = relationship("User")
+
+
+class IssueAttachment(Base):
+    __tablename__ = "issue_attachments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    issue_id = Column(Integer, ForeignKey("issues.id"), nullable=False)
+    uploaded_by_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    original_filename = Column(String(255), nullable=False)
+    stored_filename = Column(String(255), nullable=False, unique=True)
+    content_type = Column(String(100), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    issue = relationship("Issue", back_populates="attachments")
+    uploaded_by = relationship("User")
 
 
 class ActivityLog(Base):

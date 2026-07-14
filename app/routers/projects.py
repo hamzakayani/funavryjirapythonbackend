@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
@@ -12,6 +12,7 @@ from app.schemas import (
     CreateIssueRequest,
     CreateSprintRequest,
     IssueDetailOut,
+    IssueAttachmentOut,
     IssueOut,
     ProjectMemberOut,
     ProjectOut,
@@ -203,3 +204,13 @@ def add_worklog(
     db: Session = Depends(get_db),
 ):
     return IssueService(db).add_worklog(issue_id, data, user)
+
+
+@router.post("/issues/{issue_id}/attachments", response_model=IssueAttachmentOut)
+async def add_issue_attachment(
+    issue_id: int,
+    file: UploadFile = File(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return await IssueService(db).add_attachment(issue_id, file, user)
