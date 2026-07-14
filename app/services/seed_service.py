@@ -4,13 +4,27 @@ from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.auth import hash_password
+from app.core.security import hash_password
 from app.models import (
-    User, UserStatus, Project, ProjectMember, ProjectRole,
-    Sprint, SprintStatus, Issue, IssueType, IssueStatus, Priority,
+    Issue,
+    IssueStatus,
+    IssueType,
+    Priority,
+    Project,
+    ProjectRole,
+    Sprint,
+    SprintStatus,
+    User,
+    UserStatus,
 )
-from app.services.issues import log_activity, get_next_issue_number
-
+from app.repositories import (
+    ActivityLogRepository,
+    IssueRepository,
+    ProjectMemberRepository,
+    ProjectRepository,
+    SprintRepository,
+    UserRepository,
+)
 
 DEMO_USERS = [
     {
@@ -73,135 +87,127 @@ DEMO_USERS = [
 ]
 
 
-def _get_or_create_user(db: Session, data: dict) -> User:
-    user = db.query(User).filter(User.email == data["email"]).first()
-    if user:
-        return user
-    user = User(
-        name=data["name"],
-        email=data["email"],
-        password_hash=hash_password(data["password"]),
-        job_title=data.get("job_title"),
-        status=data["status"],
-        is_super_admin=data.get("is_super_admin", False),
-        rejection_reason=data.get("rejection_reason"),
-    )
-    db.add(user)
-    db.flush()
-    return user
-
-
-def _add_member(db: Session, project_id: int, user_id: int, role: ProjectRole):
-    existing = db.query(ProjectMember).filter(
-        ProjectMember.project_id == project_id,
-        ProjectMember.user_id == user_id,
-    ).first()
-    if not existing:
-        db.add(ProjectMember(project_id=project_id, user_id=user_id, project_role=role))
-
-
-def _create_issue(
-    db: Session,
-    project: Project,
-    reporter_id: int,
-    *,
-    title: str,
-    issue_type: IssueType,
-    issue_number: int,
-    assignee_id: int | None = None,
-    sprint_id: int | None = None,
-    parent_issue_id: int | None = None,
-    status: IssueStatus = IssueStatus.ToDo,
-    priority: Priority = Priority.Medium,
-    story_points: int | None = None,
-    backlog_order: int = 0,
-    description: str | None = None,
-) -> Issue:
-    issue = Issue(
-        project_id=project.id,
-        issue_number=issue_number,
-        issue_key=f"{project.key}-{issue_number}",
-        title=title,
-        description=description,
-        issue_type=issue_type,
-        priority=priority,
-        status=status,
-        assignee_id=assignee_id,
-        reporter_id=reporter_id,
-        sprint_id=sprint_id,
-        parent_issue_id=parent_issue_id,
-        story_points=story_points,
-        backlog_order=backlog_order,
-    )
-    db.add(issue)
-    db.flush()
-    log_activity(db, issue.id, reporter_id, "created")
-    return issue
-
-
 def seed_demo_data(db: Session):
-    users = {u["email"]: _get_or_create_user(db, u) for u in DEMO_USERS}
+    users_repo = UserRepository(db)
+    projects_repo = ProjectRepository(db)
+    members_repo = ProjectMemberRepository(db)
+    sprints_repo = SprintRepository(db)
+    issues_repo = IssueRepository(db)
+    activities_repo = ActivityLogRepository(db)
+
+    def get_or_create_user(data: dict) -> User:
+        user = users_repo.get_by_email(data["email"])
+        if user:
+            return user
+        user = User(
+            name=data["name"],
+            email=data["email"],
+            password_hash=hash_password(data["password"]),
+            job_title=data.get("job_title"),
+            status=data["status"],
+            is_super_admin=data.get("is_super_admin", False),
+            rejection_reason=data.get("rejection_reason"),
+        )
+        return users_repo.create(user)
+
+    def create_issue(
+        project: Project,
+        reporter_id: int,
+        *,
+        title: str,
+        issue_type: IssueType,
+        issue_number: int,
+        assignee_id: int | None = None,
+        sprint_id: int | None = None,
+        parent_issue_id: int | None = None,
+        status: IssueStatus = IssueStatus.ToDo,
+        priority: Priority = Priority.Medium,
+        story_points: int | None = None,
+        backlog_order: int = 0,
+        description: str | None = None,
+    ) -> Issue:
+        issue = Issue(
+            project_id=project.id,
+            issue_number=issue_number,
+            issue_key=f"{project.key}-{issue_number}",
+            title=title,
+            description=description,
+            issue_type=issue_type,
+            priority=priority,
+            status=status,
+            assignee_id=assignee_id,
+            reporter_id=reporter_id,
+            sprint_id=sprint_id,
+            parent_issue_id=parent_issue_id,
+            story_points=story_points,
+            backlog_order=backlog_order,
+        )
+        issues_repo.create(issue)
+        activities_repo.create(issue_id=issue.id, user_id=reporter_id, action="created")
+        return issue
+
+    users = {u["email"]: get_or_create_user(u) for u in DEMO_USERS}
     admin = users["admin@example.com"]
     lead = users["jordan.lead@example.com"]
     member = users["sam.member@example.com"]
     dev = users["alex.dev@example.com"]
 
-    project = db.query(Project).filter(Project.key == "ENG").first()
+    project = projects_repo.get_by_key("ENG", include_archived=True)
     if not project:
-        project = Project(
-            key="ENG",
-            name="Engineering Platform",
-            description="Core platform development — backlog, sprints, and board demo project.",
-            created_by=admin.id,
+        project = projects_repo.create(
+            Project(
+                key="ENG",
+                name="Engineering Platform",
+                description="Core platform development — backlog, sprints, and board demo project.",
+                created_by=admin.id,
+            )
         )
-        db.add(project)
-        db.flush()
     else:
         project.name = "Engineering Platform"
-        project.description = "Core platform development — backlog, sprints, and board demo project."
+        project.description = (
+            "Core platform development — backlog, sprints, and board demo project."
+        )
 
-    _add_member(db, project.id, lead.id, ProjectRole.Lead)
-    _add_member(db, project.id, member.id, ProjectRole.Member)
-    _add_member(db, project.id, dev.id, ProjectRole.Member)
+    members_repo.upsert(project.id, lead.id, ProjectRole.Lead)
+    members_repo.upsert(project.id, member.id, ProjectRole.Member)
+    members_repo.upsert(project.id, dev.id, ProjectRole.Member)
 
-    issue_count = db.query(Issue).filter(Issue.project_id == project.id).count()
-    if issue_count >= 5:
+    if issues_repo.count_for_project(project.id) >= 5:
         db.commit()
         return
 
     today = date.today()
-    active_sprint = db.query(Sprint).filter(
-        Sprint.project_id == project.id, Sprint.status == SprintStatus.Active
-    ).first()
+    active_sprint = sprints_repo.get_active(project.id)
     if not active_sprint:
-        active_sprint = Sprint(
-            project_id=project.id,
-            name="Sprint 1 — Foundation",
-            goal="Deliver authentication and project workspace MVP",
-            start_date=today - timedelta(days=7),
-            end_date=today + timedelta(days=7),
-            status=SprintStatus.Active,
+        active_sprint = sprints_repo.create(
+            Sprint(
+                project_id=project.id,
+                name="Sprint 1 — Foundation",
+                goal="Deliver authentication and project workspace MVP",
+                start_date=today - timedelta(days=7),
+                end_date=today + timedelta(days=7),
+                status=SprintStatus.Active,
+            )
         )
-        db.add(active_sprint)
-    planned_sprint = db.query(Sprint).filter(
-        Sprint.project_id == project.id, Sprint.status == SprintStatus.Planned
-    ).first()
+    planned_sprint = sprints_repo.get_by_status(project.id, SprintStatus.Planned)
     if not planned_sprint:
-        planned_sprint = Sprint(
-            project_id=project.id,
-            name="Sprint 2 — Board & Backlog",
-            goal="Complete drag-and-drop board and backlog grooming",
-            start_date=today + timedelta(days=8),
-            end_date=today + timedelta(days=22),
-            status=SprintStatus.Planned,
+        planned_sprint = sprints_repo.create(
+            Sprint(
+                project_id=project.id,
+                name="Sprint 2 — Board & Backlog",
+                goal="Complete drag-and-drop board and backlog grooming",
+                start_date=today + timedelta(days=8),
+                end_date=today + timedelta(days=22),
+                status=SprintStatus.Planned,
+            )
         )
-        db.add(planned_sprint)
     db.flush()
 
-    start_num = get_next_issue_number(db, project.id)
+    start_num = issues_repo.next_issue_number(project.id)
 
-    epic = _create_issue(
-        db, project, lead.id,
+    epic = create_issue(
+        project,
+        lead.id,
         title="User Management & Onboarding",
         issue_type=IssueType.Epic,
         issue_number=start_num,
@@ -210,8 +216,9 @@ def seed_demo_data(db: Session):
         backlog_order=0,
     )
 
-    story1 = _create_issue(
-        db, project, lead.id,
+    story1 = create_issue(
+        project,
+        lead.id,
         title="Implement Super Admin user approval queue",
         issue_type=IssueType.Story,
         issue_number=start_num + 1,
@@ -224,8 +231,9 @@ def seed_demo_data(db: Session):
         backlog_order=1,
     )
 
-    _create_issue(
-        db, project, lead.id,
+    create_issue(
+        project,
+        lead.id,
         title="Add project member assignment UI",
         issue_type=IssueType.Story,
         issue_number=start_num + 2,
@@ -237,8 +245,9 @@ def seed_demo_data(db: Session):
         backlog_order=2,
     )
 
-    _create_issue(
-        db, project, member.id,
+    create_issue(
+        project,
+        member.id,
         title="Write unit tests for auth endpoints",
         issue_type=IssueType.SubTask,
         issue_number=start_num + 3,
@@ -250,8 +259,9 @@ def seed_demo_data(db: Session):
         backlog_order=3,
     )
 
-    _create_issue(
-        db, project, lead.id,
+    create_issue(
+        project,
+        lead.id,
         title="Fix login error message for suspended users",
         issue_type=IssueType.Bug,
         issue_number=start_num + 4,
@@ -263,8 +273,9 @@ def seed_demo_data(db: Session):
         backlog_order=4,
     )
 
-    _create_issue(
-        db, project, lead.id,
+    create_issue(
+        project,
+        lead.id,
         title="Set up CI pipeline",
         issue_type=IssueType.Task,
         issue_number=start_num + 5,
@@ -275,8 +286,9 @@ def seed_demo_data(db: Session):
         backlog_order=5,
     )
 
-    _create_issue(
-        db, project, lead.id,
+    create_issue(
+        project,
+        lead.id,
         title="Design sprint completion flow",
         issue_type=IssueType.Story,
         issue_number=start_num + 6,
@@ -286,8 +298,9 @@ def seed_demo_data(db: Session):
         backlog_order=6,
     )
 
-    _create_issue(
-        db, project, lead.id,
+    create_issue(
+        project,
+        lead.id,
         title="Add global issue key search",
         issue_type=IssueType.Task,
         issue_number=start_num + 7,

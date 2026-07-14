@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import SessionLocal
-from app.seed import seed_demo_data
-from app.routers import auth, admin, projects
+from app.routers import admin, auth, projects
+from app.services import seed_demo_data
 
 app = FastAPI(
     title="JIRA Clone API",

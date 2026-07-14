@@ -1,18 +1,14 @@
-"""Backward-compatible re-exports. Prefer `app.core` for new code. """
-
-from app.core import (
+from app.core.deps import (
     can_assign_issue,
     can_change_issue_status,
     can_edit_issue,
     can_manage_project,
-    create_access_token,
     get_current_user,
     get_project_membership,
-    hash_password,
     require_project_access,
     require_super_admin,
-    verify_password,
 )
+from app.core.security import create_access_token, hash_password, verify_password
 
 __all__ = [
     "hash_password",
