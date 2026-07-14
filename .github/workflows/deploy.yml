@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to app.lisr.org/jira (prod)
+      - name: Deploy to app.lisr.org/jira (main)
         if: github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v1.2.0
         with:
@@ -26,9 +26,9 @@ jobs:
             echo "Navigating to project directory..."
             cd /home/azureuser/FT/funavryjirapythonbackend
 
-            echo "Pulling latest code from prod branch..."
+            echo "Pulling latest code from main branch..."
             git fetch --all
-            git reset --hard origin/prod
+            git reset --hard origin/main
 
             echo "Activating Conda environment 'ft'..."
             # Initialize Conda
