@@ -6,12 +6,15 @@ from app.database import SessionLocal
 from app.seed import seed_demo_data
 from app.routers import auth, admin, projects
 
-app = FastAPI(title="JIRA Clone API", version="1.0.0")
-
+app = FastAPI(
+    title="JIRA Clone API",
+    version="1.0.0",
+    root_path="/jira",
+)
 origins = [o.strip() for o in settings.cors_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[*],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
