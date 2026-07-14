@@ -1,0 +1,59 @@
+name: Build, Push & Pull on VM
+
+on:
+  push:
+    branches: [ "main"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to app.lisr.org/jira (prod)
+        if: github.ref == 'refs/heads/prod'
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PROD_VM_HOST }}
+          username: azureuser
+          key: ${{ secrets.PROD_VM_SSH_KEY }}
+          port: 22
+          timeout: 2m
+          script: |
+            set -e
+            echo "SSH connection to app.lisr.org/jira successful!"
+
+            echo "Navigating to project directory..."
+            cd /home/azureuser/FT/funavryjirapythonbackend
+
+            echo "Pulling latest code from prod branch..."
+            git fetch --all
+            git reset --hard origin/prod
+
+            echo "Activating Conda environment 'ft'..."
+            # Initialize Conda
+            source /home/azureuser/miniconda3/etc/profile.d/conda.sh
+            conda activate ft-jira
+            conda info
+
+            echo "Installing/Updating dependencies..."
+            pip install -r requirements.txt
+
+            #echo "Generating Alembic migration..."
+            #alembic revision --autogenerate -m "auto migration"
+
+            #echo "Applying Alembic migrations..."
+            #alembic upgrade head
+
+            # Optional: Run db_seed script if it exists
+            #if [ -f ./scripts/db_seed.py ]; then
+            #    echo "Running optional DB seeding..."
+            #    python ./scripts/db_seed.py
+            #fi
+
+            echo "Restarting FastAPI service..."
+            export SERVER=production
+            pm2 describe ft_jira > /dev/null && pm2 restart ft_jira --update-env || pm2 start ecosystem.config.js --only ft_jira
+            pm2 save
+
+            echo "Deployment complete!"
