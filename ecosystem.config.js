@@ -7,7 +7,7 @@ module.exports = {
   
         args: "-w 8 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8005 --timeout 120 --max-requests 1000 --max-requests-jitter 100 --access-logfile -",
   
-        interpreter: "/home/azureuser/miniconda3/envs/ft/bin/python",
+        interpreter: "/home/azureuser/miniconda3/envs/ft_jira/bin/python",
   
         instances: 1,
         exec_mode: "fork",
