@@ -11,7 +11,7 @@ app = FastAPI(title="JIRA Clone API", version="1.0.0")
 origins = [o.strip() for o in settings.cors_origins.split(",")]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[*],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
