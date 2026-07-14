@@ -108,7 +108,7 @@ class AdminService:
 
     def active_users(self) -> list[dict]:
         return [
-            {"id": u.id, "name": u.name, "email": u.email}
+            {"id": u.id, "name": u.name, "email": u.email, "avatar_url": u.avatar_url}
             for u in self.users.list_active()
         ]
 

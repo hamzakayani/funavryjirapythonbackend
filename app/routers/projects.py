@@ -214,3 +214,13 @@ async def add_issue_attachment(
     db: Session = Depends(get_db),
 ):
     return await IssueService(db).add_attachment(issue_id, file, user)
+
+
+@router.delete("/issues/{issue_id}/attachments/{attachment_id}")
+def delete_issue_attachment(
+    issue_id: int,
+    attachment_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return IssueService(db).delete_attachment(issue_id, attachment_id, user)

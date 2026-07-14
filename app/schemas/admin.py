@@ -29,6 +29,7 @@ class UserAdminOut(BaseModel):
     id: int
     name: str
     email: str
+    avatar_url: Optional[str] = None
     job_title: Optional[str]
     status: str
     is_super_admin: bool

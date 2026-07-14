@@ -59,6 +59,7 @@ class ProjectService:
                     user_id=m.user_id,
                     name=u.name,
                     email=u.email,
+                    avatar_url=u.avatar_url,
                     project_role=m.project_role.value,
                     assigned_at=m.assigned_at,
                 )

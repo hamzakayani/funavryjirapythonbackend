@@ -67,8 +67,8 @@ class IssueService:
             issue_type=issue.issue_type.value,
             priority=issue.priority.value,
             status=issue.status.value,
-            assignee=UserMini(id=issue.assignee.id, name=issue.assignee.name) if issue.assignee else None,
-            reporter=UserMini(id=issue.reporter.id, name=issue.reporter.name),
+            assignee=UserMini(id=issue.assignee.id, name=issue.assignee.name, avatar_url=issue.assignee.avatar_url) if issue.assignee else None,
+            reporter=UserMini(id=issue.reporter.id, name=issue.reporter.name, avatar_url=issue.reporter.avatar_url),
             sprint_id=issue.sprint_id,
             parent_issue_id=issue.parent_issue_id,
             story_points=issue.story_points,
@@ -89,7 +89,7 @@ class IssueService:
             content_type=attachment.content_type,
             file_size=attachment.file_size,
             file_url=f"{UPLOADS_BASE_PATH}/{REFERENCE_IMAGE_DIR}/{attachment.stored_filename}",
-            uploaded_by=UserMini(id=attachment.uploaded_by.id, name=attachment.uploaded_by.name),
+            uploaded_by=UserMini(id=attachment.uploaded_by.id, name=attachment.uploaded_by.name, avatar_url=attachment.uploaded_by.avatar_url),
             created_at=attachment.created_at,
         )
 
@@ -232,7 +232,7 @@ class IssueService:
             CommentOut(
                 id=c.id,
                 body=c.body,
-                author=UserMini(id=c.author.id, name=c.author.name),
+                author=UserMini(id=c.author.id, name=c.author.name, avatar_url=c.author.avatar_url),
                 created_at=c.created_at,
             )
             for c in sorted(issue.comments, key=lambda x: x.created_at)
@@ -243,7 +243,7 @@ class IssueService:
                 date_worked=w.date_worked,
                 time_spent_minutes=w.time_spent_minutes,
                 description=w.description,
-                user=UserMini(id=w.user.id, name=w.user.name),
+                user=UserMini(id=w.user.id, name=w.user.name, avatar_url=w.user.avatar_url),
                 created_at=w.created_at,
             )
             for w in sorted(issue.worklogs, key=lambda x: x.created_at, reverse=True)
@@ -259,7 +259,7 @@ class IssueService:
                 field_name=a.field_name,
                 old_value=a.old_value,
                 new_value=a.new_value,
-                user=UserMini(id=a.user.id, name=a.user.name),
+                user=UserMini(id=a.user.id, name=a.user.name, avatar_url=a.user.avatar_url),
                 created_at=a.created_at,
             )
             for a in sorted(issue.activities, key=lambda x: x.created_at, reverse=True)
@@ -384,7 +384,7 @@ class IssueService:
         return CommentOut(
             id=comment.id,
             body=comment.body,
-            author=UserMini(id=user.id, name=user.name),
+            author=UserMini(id=user.id, name=user.name, avatar_url=user.avatar_url),
             created_at=comment.created_at,
         )
 
@@ -418,7 +418,7 @@ class IssueService:
             date_worked=wl.date_worked,
             time_spent_minutes=wl.time_spent_minutes,
             description=wl.description,
-            user=UserMini(id=user.id, name=user.name),
+            user=UserMini(id=user.id, name=user.name, avatar_url=user.avatar_url),
             created_at=wl.created_at,
         )
 
@@ -479,3 +479,34 @@ class IssueService:
         self.db.refresh(attachment)
         attachment.uploaded_by = user
         return self.attachment_to_out(attachment)
+
+    def delete_attachment(self, issue_id: int, attachment_id: int, user: User) -> dict:
+        issue = self.issues.get_by_id(issue_id, include_archived=True)
+        if not issue:
+            raise HTTPException(status_code=404, detail="Issue not found")
+        require_project_access(self.db, user, issue.project_id)
+        if not can_edit_issue(self.db, user, issue):
+            raise HTTPException(status_code=403, detail="Cannot remove images from this issue")
+
+        attachment = (
+            self.db.query(IssueAttachment)
+            .filter(IssueAttachment.id == attachment_id, IssueAttachment.issue_id == issue.id)
+            .first()
+        )
+        if not attachment:
+            raise HTTPException(status_code=404, detail="Attachment not found")
+
+        original_filename = attachment.original_filename
+        stored_filename = attachment.stored_filename
+        self.db.delete(attachment)
+        self.activities.create(
+            issue_id=issue.id,
+            user_id=user.id,
+            action="attachment_removed",
+            old_value=original_filename,
+        )
+        self.db.commit()
+
+        attachment_path = Path(settings.upload_dir) / REFERENCE_IMAGE_DIR / stored_filename
+        attachment_path.unlink(missing_ok=True)
+        return {"message": "Attachment removed"}

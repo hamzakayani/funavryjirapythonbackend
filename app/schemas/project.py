@@ -23,5 +23,6 @@ class ProjectMemberOut(BaseModel):
     user_id: int
     name: str
     email: str
+    avatar_url: Optional[str] = None
     project_role: str
     assigned_at: datetime
