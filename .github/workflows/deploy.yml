@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Deploy to app.lisr.org/jira (prod)
-        if: github.ref == 'refs/heads/prod'
+        if: github.ref == 'refs/heads/main'
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.PROD_VM_HOST }}
