@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.database import engine, Base, SessionLocal
+from app.database import SessionLocal
 from app.seed import seed_demo_data
 from app.routers import auth, admin, projects
 
@@ -24,7 +24,6 @@ app.include_router(projects.router, prefix="/api/v1")
 
 @app.on_event("startup")
 def startup():
-    Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
         seed_demo_data(db)
