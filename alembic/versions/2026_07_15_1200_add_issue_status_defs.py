@@ -21,13 +21,14 @@ DEFAULT_STATUSES = ["To Do", "In Progress", "In Review", "Done"]
 def upgrade() -> None:
     op.create_table(
         "issue_status_defs",
-        sa.Column("id", sa.Integer(), primary_key=True, index=True),
+        sa.Column("id", sa.Integer(), nullable=False),
         sa.Column("project_id", sa.Integer(), nullable=False),
         sa.Column("name", sa.String(length=50), nullable=False),
         sa.Column("order", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("is_default", sa.Boolean(), nullable=False, server_default=sa.false()),
         sa.Column("created_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(["project_id"], ["projects.id"]),
+        sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("project_id", "name", name="uq_project_status_name"),
     )
     op.create_index(op.f("ix_issue_status_defs_id"), "issue_status_defs", ["id"], unique=False)
