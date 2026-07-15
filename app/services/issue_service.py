@@ -127,7 +127,7 @@ class IssueService:
                 description=issue.description,
                 project_key=issue.project.key,
                 project_name=issue.project.name,
-                status=issue.status.value,
+                status=issue.status,
                 issue_type=issue.issue_type.value,
             )
             for issue in self.issues.search(query, user_id=user_id)
