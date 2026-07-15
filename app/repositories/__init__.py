@@ -8,6 +8,7 @@ from app.repositories.issue_status import IssueStatusRepository
 from app.repositories.comment import CommentRepository
 from app.repositories.worklog import WorklogRepository
 from app.repositories.activity_log import ActivityLogRepository
+from app.repositories.analytics import AnalyticsRepository
 
 __all__ = [
     "UserRepository",
@@ -20,4 +21,5 @@ __all__ = [
     "CommentRepository",
     "WorklogRepository",
     "ActivityLogRepository",
+    "AnalyticsRepository",
 ]

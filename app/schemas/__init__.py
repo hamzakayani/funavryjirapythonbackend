@@ -42,6 +42,15 @@ from app.schemas.issue import (
     WorklogOut,
     WorklogRequest,
 )
+from app.schemas.analytics import (
+    HoursPoint,
+    ProjectStatsOut,
+    SprintStatsOut,
+    StatusCount,
+    TypeCount,
+    UserReportOut,
+    UserReportRow,
+)
 
 __all__ = [
     "RegisterRequest",
@@ -81,4 +90,11 @@ __all__ = [
     "CreateStatusRequest",
     "UpdateStatusRequest",
     "ReorderStatusRequest",
+    "StatusCount",
+    "TypeCount",
+    "HoursPoint",
+    "ProjectStatsOut",
+    "SprintStatsOut",
+    "UserReportRow",
+    "UserReportOut",
 ]
