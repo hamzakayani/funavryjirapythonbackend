@@ -108,6 +108,24 @@ class IssueService:
             issue_type=issue.issue_type.value,
         )
 
+    def search_issues(self, query: str, user: User) -> list[SearchResult]:
+        if len(query.strip()) < 2:
+            return []
+        user_id = None if user.is_super_admin else user.id
+        return [
+            SearchResult(
+                id=issue.id,
+                issue_key=issue.issue_key,
+                title=issue.title,
+                description=issue.description,
+                project_key=issue.project.key,
+                project_name=issue.project.name,
+                status=issue.status.value,
+                issue_type=issue.issue_type.value,
+            )
+            for issue in self.issues.search(query, user_id=user_id)
+        ]
+
     def list_epics(self, project_key: str, user: User) -> list[IssueOut]:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)

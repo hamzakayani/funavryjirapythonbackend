@@ -155,6 +155,7 @@ class SearchResult(BaseModel):
     id: int
     issue_key: str
     title: str
+    description: Optional[str] = None
     project_key: str
     project_name: str
     status: str

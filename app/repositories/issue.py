@@ -1,5 +1,6 @@
 from typing import Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.models import (
@@ -9,6 +10,7 @@ from app.models import (
     IssueAttachment,
     IssueStatus,
     IssueType,
+    ProjectMember,
     Worklog,
 )
 
@@ -61,6 +63,24 @@ class IssueRepository:
             .filter(Issue.issue_key == issue_key.upper(), Issue.is_archived == False)  # noqa: E712
             .first()
         )
+
+    def search(self, query: str, user_id: int | None = None, *, limit: int = 10) -> list[Issue]:
+        pattern = f"%{query.strip()}%"
+        q = (
+            self.db.query(Issue)
+            .options(joinedload(Issue.project))
+            .filter(
+                Issue.is_archived == False,  # noqa: E712
+                or_(
+                    Issue.issue_key.ilike(pattern),
+                    Issue.title.ilike(pattern),
+                    Issue.description.ilike(pattern),
+                ),
+            )
+        )
+        if user_id is not None:
+            q = q.join(ProjectMember, ProjectMember.project_id == Issue.project_id).filter(ProjectMember.user_id == user_id)
+        return q.order_by(Issue.updated_at.desc()).limit(limit).all()
 
     def get_in_project(self, issue_id: int, project_id: int) -> Optional[Issue]:
         return (

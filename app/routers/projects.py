@@ -54,6 +54,15 @@ def search_issue(
     return IssueService(db).search(key, user)
 
 
+@router.get("/search/issues", response_model=list[SearchResult])
+def search_issues(
+    q: str = Query(..., min_length=2),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return IssueService(db).search_issues(q, user)
+
+
 @router.get("/projects/{project_key}/epics", response_model=list[IssueOut])
 def list_epics(
     project_key: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
