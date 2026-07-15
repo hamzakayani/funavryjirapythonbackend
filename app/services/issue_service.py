@@ -13,12 +13,13 @@ from app.core.deps import (
     can_manage_project,
     require_project_access,
 )
-from app.models import Comment, Issue, IssueAttachment, IssueStatus, IssueType, Priority, User, Worklog
+from app.models import Comment, Issue, IssueAttachment, IssueType, Priority, User, Worklog
 from app.repositories import (
     ActivityLogRepository,
     CommentRepository,
     IssueLabelRepository,
     IssueRepository,
+    IssueStatusRepository,
     SprintRepository,
     WorklogRepository,
 )
@@ -41,7 +42,6 @@ from app.schemas import (
 )
 from app.services.project_service import ProjectService
 
-STATUSES = ["To Do", "In Progress", "In Review", "Done"]
 MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024
 UPLOADS_BASE_PATH = "/jira/uploads"
 REFERENCE_IMAGE_DIR = "issue-attachments"
@@ -57,8 +57,15 @@ class IssueService:
         self.worklogs = WorklogRepository(db)
         self.activities = ActivityLogRepository(db)
         self.projects = ProjectService(db)
+        self.status_defs = IssueStatusRepository(db)
 
     def issue_to_out(self, issue: Issue) -> IssueOut:
+        time_logged = self.worklogs.sum_for_issue(issue.id)
+        remaining = (
+            issue.original_estimate_minutes - time_logged
+            if issue.original_estimate_minutes is not None
+            else None
+        )
         return IssueOut(
             id=issue.id,
             issue_key=issue.issue_key,
@@ -66,15 +73,15 @@ class IssueService:
             description=issue.description,
             issue_type=issue.issue_type.value,
             priority=issue.priority.value,
-            status=issue.status.value,
+            status=issue.status,
             assignee=UserMini(id=issue.assignee.id, name=issue.assignee.name, avatar_url=issue.assignee.avatar_url) if issue.assignee else None,
             reporter=UserMini(id=issue.reporter.id, name=issue.reporter.name, avatar_url=issue.reporter.avatar_url),
             sprint_id=issue.sprint_id,
             parent_issue_id=issue.parent_issue_id,
             story_points=issue.story_points,
             original_estimate_minutes=issue.original_estimate_minutes,
-            remaining_estimate_minutes=issue.remaining_estimate_minutes,
-            time_logged_minutes=self.worklogs.sum_for_issue(issue.id),
+            remaining_estimate_minutes=remaining,
+            time_logged_minutes=time_logged,
             due_date=issue.due_date,
             labels=[l.label for l in issue.labels],
             backlog_order=issue.backlog_order,
@@ -104,7 +111,7 @@ class IssueService:
             title=issue.title,
             project_key=issue.project.key,
             project_name=issue.project.name,
-            status=issue.status.value,
+            status=issue.status,
             issue_type=issue.issue_type.value,
         )
 
@@ -180,6 +187,29 @@ class IssueService:
         )
         return [self.issue_to_out(i) for i in issues]
 
+    def list_all(
+        self,
+        project_key: str,
+        user: User,
+        *,
+        issue_type: str | None = None,
+        assignee: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
+    ) -> list[IssueOut]:
+        project = self.projects.get_by_key(project_key)
+        require_project_access(self.db, user, project.id)
+        assignee_id, unassigned = self._resolve_assignee_filter(assignee, user, project.id)
+        issues = self.issues.list_all_for_project(
+            project.id,
+            issue_type=issue_type,
+            assignee_id=assignee_id,
+            unassigned=unassigned,
+            status=status,
+            priority=priority,
+        )
+        return [self.issue_to_out(i) for i in issues]
+
     def reorder_backlog(self, project_key: str, data: ReorderBacklogRequest, user: User) -> dict:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
@@ -205,7 +235,8 @@ class IssueService:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
         active_sprint = self.sprints.get_active(project.id)
-        columns = {s: [] for s in STATUSES}
+        status_names = [s.name for s in self.status_defs.list_for_project(project.id)]
+        columns = {s: [] for s in status_names}
         sprint_out = None
         if active_sprint:
             sprint_out = SprintOut(
@@ -227,8 +258,8 @@ class IssueService:
                 priority=priority,
             ):
                 out = self.issue_to_out(issue)
-                if issue.status.value in columns:
-                    columns[issue.status.value].append(out.model_dump())
+                if issue.status in columns:
+                    columns[issue.status].append(out.model_dump())
         return BoardResponse(sprint=sprint_out, columns=columns)
 
     def sprint_issues(self, sprint_id: int, user: User) -> list[IssueOut]:
@@ -336,15 +367,18 @@ class IssueService:
         if data.status is not None:
             if not can_change_issue_status(self.db, user, issue):
                 raise HTTPException(status_code=403, detail="Cannot change status")
-            old = issue.status.value
-            issue.status = IssueStatus(data.status)
+            valid_names = {s.name for s in self.status_defs.list_for_project(issue.project_id)}
+            if data.status not in valid_names:
+                raise HTTPException(status_code=400, detail="Unknown status for this project")
+            old = issue.status
+            issue.status = data.status
             self.activities.create(
                 issue_id=issue.id,
                 user_id=user.id,
                 action="field_changed",
                 field_name="status",
                 old_value=old,
-                new_value=issue.status.value,
+                new_value=issue.status,
             )
         elif not can_edit_issue(self.db, user, issue):
             raise HTTPException(status_code=403, detail="Cannot edit issue")
@@ -362,7 +396,6 @@ class IssueService:
             "parent_issue_id": ("parent_issue_id", lambda v: v),
             "story_points": ("story_points", lambda v: v),
             "original_estimate_minutes": ("original_estimate_minutes", lambda v: v),
-            "remaining_estimate_minutes": ("remaining_estimate_minutes", lambda v: v),
             "due_date": ("due_date", lambda v: v),
         }
         updates = data.model_dump(exclude_unset=True, exclude={"status", "labels", "issue_type"})

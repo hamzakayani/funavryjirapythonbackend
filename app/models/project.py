@@ -22,6 +22,9 @@ class Project(Base):
     members = relationship("ProjectMember", back_populates="project")
     sprints = relationship("Sprint", back_populates="project")
     issues = relationship("Issue", back_populates="project")
+    statuses = relationship(
+        "IssueStatusDef", back_populates="project", order_by="IssueStatusDef.order"
+    )
 
 
 class ProjectMember(Base):
@@ -36,3 +39,17 @@ class ProjectMember(Base):
 
     project = relationship("Project", back_populates="members")
     user = relationship("User", back_populates="project_memberships")
+
+
+class IssueStatusDef(Base):
+    __tablename__ = "issue_status_defs"
+    __table_args__ = (UniqueConstraint("project_id", "name", name="uq_project_status_name"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    name = Column(String(50), nullable=False)
+    order = Column(Integer, default=0, nullable=False)
+    is_default = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    project = relationship("Project", back_populates="statuses")

@@ -6,7 +6,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-from app.models.enums import IssueStatus, IssueType, Priority
+from app.models.enums import IssueType, Priority
 
 
 class Issue(Base):
@@ -24,7 +24,7 @@ class Issue(Base):
     description = Column(Text, nullable=True)
     issue_type = Column(Enum(IssueType), nullable=False)
     priority = Column(Enum(Priority), default=Priority.Medium, nullable=False)
-    status = Column(Enum(IssueStatus), default=IssueStatus.ToDo, nullable=False)
+    status = Column(String(50), default="To Do", nullable=False)
     assignee_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     sprint_id = Column(Integer, ForeignKey("sprints.id"), nullable=True)

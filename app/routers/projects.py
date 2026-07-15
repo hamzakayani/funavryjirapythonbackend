@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database import get_db
-from app.models import IssueStatus, IssueType, Priority, User
+from app.models import IssueType, Priority, User
 from app.schemas import (
     BoardResponse,
     CommentOut,
@@ -11,15 +11,19 @@ from app.schemas import (
     CompleteSprintRequest,
     CreateIssueRequest,
     CreateSprintRequest,
+    CreateStatusRequest,
     IssueDetailOut,
     IssueAttachmentOut,
     IssueOut,
+    IssueStatusOut,
     ProjectMemberOut,
     ProjectOut,
     ReorderBacklogRequest,
+    ReorderStatusRequest,
     SearchResult,
     SprintOut,
     UpdateIssueRequest,
+    UpdateStatusRequest,
     WorklogOut,
     WorklogRequest,
 )
@@ -43,6 +47,54 @@ def project_members(
     project_key: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     return ProjectService(db).list_members(project_key, user)
+
+
+@router.get("/projects/{project_key}/statuses", response_model=list[IssueStatusOut])
+def list_statuses(
+    project_key: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return ProjectService(db).list_statuses(project_key, user)
+
+
+@router.post("/projects/{project_key}/statuses", response_model=IssueStatusOut)
+def create_status(
+    project_key: str,
+    data: CreateStatusRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).create_status(project_key, data, user)
+
+
+@router.patch("/projects/{project_key}/statuses/reorder", response_model=list[IssueStatusOut])
+def reorder_statuses(
+    project_key: str,
+    data: ReorderStatusRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).reorder_statuses(project_key, data, user)
+
+
+@router.patch("/projects/{project_key}/statuses/{status_id}", response_model=IssueStatusOut)
+def rename_status(
+    project_key: str,
+    status_id: int,
+    data: UpdateStatusRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).rename_status(project_key, status_id, data, user)
+
+
+@router.delete("/projects/{project_key}/statuses/{status_id}")
+def delete_status(
+    project_key: str,
+    status_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).delete_status(project_key, status_id, user)
 
 
 @router.get("/search", response_model=SearchResult)
@@ -75,7 +127,7 @@ def get_backlog(
     project_key: str,
     issue_type: IssueType | None = None,
     assignee: str | None = None,
-    status: IssueStatus | None = None,
+    status: str | None = None,
     priority: Priority | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -85,7 +137,27 @@ def get_backlog(
         user,
         issue_type=issue_type.value if issue_type else None,
         assignee=assignee,
-        status=status.value if status else None,
+        status=status,
+        priority=priority.value if priority else None,
+    )
+
+
+@router.get("/projects/{project_key}/issues", response_model=list[IssueOut])
+def list_all_issues(
+    project_key: str,
+    issue_type: IssueType | None = None,
+    assignee: str | None = None,
+    status: str | None = None,
+    priority: Priority | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return IssueService(db).list_all(
+        project_key,
+        user,
+        issue_type=issue_type.value if issue_type else None,
+        assignee=assignee,
+        status=status,
         priority=priority.value if priority else None,
     )
 
@@ -151,7 +223,7 @@ def get_board(
     project_key: str,
     assignee: str | None = None,
     issue_type: IssueType | None = None,
-    status: IssueStatus | None = None,
+    status: str | None = None,
     priority: Priority | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -161,7 +233,7 @@ def get_board(
         user,
         assignee=assignee,
         issue_type=issue_type.value if issue_type else None,
-        status=status.value if status else None,
+        status=status,
         priority=priority.value if priority else None,
     )
 

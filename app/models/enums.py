@@ -35,8 +35,7 @@ class Priority(str, enum.Enum):
     Lowest = "Lowest"
 
 
-class IssueStatus(str, enum.Enum):
-    ToDo = "To Do"
-    InProgress = "In Progress"
-    InReview = "In Review"
-    Done = "Done"
+# Default statuses seeded for every project's IssueStatusDef list.
+# Issue.status is a free-form string referencing IssueStatusDef.name — no
+# longer a fixed enum, since projects can define their own custom statuses.
+DEFAULT_STATUSES = ["To Do", "In Progress", "In Review", "Done"]

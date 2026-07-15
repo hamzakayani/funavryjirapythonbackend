@@ -1,5 +1,5 @@
 from app.models.enums import (
-    IssueStatus,
+    DEFAULT_STATUSES,
     IssueType,
     Priority,
     ProjectRole,
@@ -7,7 +7,7 @@ from app.models.enums import (
     UserStatus,
 )
 from app.models.user import User
-from app.models.project import Project, ProjectMember
+from app.models.project import IssueStatusDef, Project, ProjectMember
 from app.models.sprint import Sprint
 from app.models.issue import ActivityLog, Comment, Issue, IssueAttachment, IssueLabel, Worklog
 
@@ -17,10 +17,11 @@ __all__ = [
     "SprintStatus",
     "IssueType",
     "Priority",
-    "IssueStatus",
+    "DEFAULT_STATUSES",
     "User",
     "Project",
     "ProjectMember",
+    "IssueStatusDef",
     "Sprint",
     "Issue",
     "IssueLabel",

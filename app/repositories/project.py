@@ -2,7 +2,7 @@ from typing import Optional, Sequence
 
 from sqlalchemy.orm import Session
 
-from app.models import Issue, IssueStatus, Project, ProjectMember, Sprint, SprintStatus
+from app.models import Issue, Project, ProjectMember, Sprint, SprintStatus
 
 
 class ProjectRepository:
@@ -67,7 +67,7 @@ class ProjectRepository:
             .filter(
                 Issue.project_id == project_id,
                 Issue.is_archived == False,  # noqa: E712
-                Issue.status != IssueStatus.Done,
+                Issue.status != "Done",
             )
             .count()
         )

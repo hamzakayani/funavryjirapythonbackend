@@ -6,8 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
 from app.models import (
+    DEFAULT_STATUSES,
     Issue,
-    IssueStatus,
+    IssueStatusDef,
     IssueType,
     Priority,
     Project,
@@ -20,6 +21,7 @@ from app.models import (
 from app.repositories import (
     ActivityLogRepository,
     IssueRepository,
+    IssueStatusRepository,
     ProjectMemberRepository,
     ProjectRepository,
     SprintRepository,
@@ -94,6 +96,7 @@ def seed_demo_data(db: Session):
     sprints_repo = SprintRepository(db)
     issues_repo = IssueRepository(db)
     activities_repo = ActivityLogRepository(db)
+    statuses_repo = IssueStatusRepository(db)
 
     def get_or_create_user(data: dict) -> User:
         user = users_repo.get_by_email(data["email"])
@@ -120,7 +123,7 @@ def seed_demo_data(db: Session):
         assignee_id: int | None = None,
         sprint_id: int | None = None,
         parent_issue_id: int | None = None,
-        status: IssueStatus = IssueStatus.ToDo,
+        status: str = "To Do",
         priority: Priority = Priority.Medium,
         story_points: int | None = None,
         backlog_order: int = 0,
@@ -171,6 +174,12 @@ def seed_demo_data(db: Session):
     members_repo.upsert(project.id, lead.id, ProjectRole.Lead)
     members_repo.upsert(project.id, member.id, ProjectRole.Member)
     members_repo.upsert(project.id, dev.id, ProjectRole.Member)
+
+    if not statuses_repo.list_for_project(project.id):
+        for idx, name in enumerate(DEFAULT_STATUSES):
+            statuses_repo.create(
+                IssueStatusDef(project_id=project.id, name=name, order=idx, is_default=True)
+            )
 
     if issues_repo.count_for_project(project.id) >= 5:
         db.commit()
@@ -225,7 +234,7 @@ def seed_demo_data(db: Session):
         assignee_id=member.id,
         sprint_id=active_sprint.id,
         parent_issue_id=epic.id,
-        status=IssueStatus.InProgress,
+        status="In Progress",
         priority=Priority.High,
         story_points=5,
         backlog_order=1,
@@ -240,7 +249,7 @@ def seed_demo_data(db: Session):
         assignee_id=dev.id,
         sprint_id=active_sprint.id,
         parent_issue_id=epic.id,
-        status=IssueStatus.ToDo,
+        status="To Do",
         story_points=3,
         backlog_order=2,
     )
@@ -254,7 +263,7 @@ def seed_demo_data(db: Session):
         assignee_id=member.id,
         sprint_id=active_sprint.id,
         parent_issue_id=story1.id,
-        status=IssueStatus.InReview,
+        status="In Review",
         story_points=2,
         backlog_order=3,
     )
@@ -267,7 +276,7 @@ def seed_demo_data(db: Session):
         issue_number=start_num + 4,
         assignee_id=dev.id,
         sprint_id=active_sprint.id,
-        status=IssueStatus.ToDo,
+        status="To Do",
         priority=Priority.Highest,
         story_points=1,
         backlog_order=4,
@@ -281,7 +290,7 @@ def seed_demo_data(db: Session):
         issue_number=start_num + 5,
         assignee_id=member.id,
         sprint_id=active_sprint.id,
-        status=IssueStatus.Done,
+        status="Done",
         story_points=2,
         backlog_order=5,
     )
@@ -293,7 +302,7 @@ def seed_demo_data(db: Session):
         issue_type=IssueType.Story,
         issue_number=start_num + 6,
         sprint_id=planned_sprint.id,
-        status=IssueStatus.ToDo,
+        status="To Do",
         story_points=5,
         backlog_order=6,
     )
@@ -304,7 +313,7 @@ def seed_demo_data(db: Session):
         title="Add global issue key search",
         issue_type=IssueType.Task,
         issue_number=start_num + 7,
-        status=IssueStatus.ToDo,
+        status="To Do",
         story_points=2,
         backlog_order=7,
     )

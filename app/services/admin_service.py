@@ -66,6 +66,7 @@ class AdminService:
             created_by=admin.id,
         )
         self.projects.create(project)
+        self.project_service.seed_default_statuses(project.id)
         self.projects.save()
         self.projects.refresh(project)
         return self.project_service.to_out(project)

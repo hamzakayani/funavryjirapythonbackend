@@ -1,23 +1,30 @@
 from datetime import date, datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
-from app.models.enums import IssueStatus, IssueType, Priority
+from app.models.enums import IssueType, Priority
 from app.schemas.sprint import SprintOut
 
 
 class CreateIssueRequest(BaseModel):
     issue_type: IssueType
     title: str
-    description: Optional[str] = None
+    description: str
     priority: Priority = Priority.Medium
-    assignee_id: Optional[int] = None
+    assignee_id: int
     story_points: Optional[int] = None
     parent_issue_id: Optional[int] = None
     sprint_id: Optional[int] = None
     due_date: Optional[date] = None
-    original_estimate_minutes: Optional[int] = Field(default=None, ge=0)
+    original_estimate_minutes: int = Field(gt=0)
+
+    @field_validator("title", "description")
+    @classmethod
+    def not_blank(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("This field is required")
+        return v
 
 
 class UpdateIssueRequest(BaseModel):
@@ -25,15 +32,52 @@ class UpdateIssueRequest(BaseModel):
     description: Optional[str] = None
     issue_type: Optional[IssueType] = None
     priority: Optional[Priority] = None
-    status: Optional[IssueStatus] = None
+    status: Optional[str] = None
     assignee_id: Optional[int] = None
     sprint_id: Optional[int] = None
     parent_issue_id: Optional[int] = None
     story_points: Optional[int] = None
     original_estimate_minutes: Optional[int] = Field(default=None, ge=0)
-    remaining_estimate_minutes: Optional[int] = Field(default=None, ge=0)
     due_date: Optional[date] = None
     labels: Optional[List[str]] = None
+
+
+class IssueStatusOut(BaseModel):
+    id: int
+    name: str
+    order: int
+    is_default: bool
+
+    class Config:
+        from_attributes = True
+
+
+class CreateStatusRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Status name is required")
+        return v
+
+
+class UpdateStatusRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=50)
+
+    @field_validator("name")
+    @classmethod
+    def strip_name(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("Status name is required")
+        return v
+
+
+class ReorderStatusRequest(BaseModel):
+    status_ids: List[int]
 
 
 class ReorderBacklogRequest(BaseModel):
