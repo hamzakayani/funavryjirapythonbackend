@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
 from app.database import get_db
-from app.models import IssueStatus, IssueType, User
+from app.models import IssueStatus, IssueType, Priority, User
 from app.schemas import (
     BoardResponse,
     CommentOut,
@@ -76,6 +76,7 @@ def get_backlog(
     issue_type: IssueType | None = None,
     assignee: str | None = None,
     status: IssueStatus | None = None,
+    priority: Priority | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -85,6 +86,7 @@ def get_backlog(
         issue_type=issue_type.value if issue_type else None,
         assignee=assignee,
         status=status.value if status else None,
+        priority=priority.value if priority else None,
     )
 
 
@@ -149,6 +151,8 @@ def get_board(
     project_key: str,
     assignee: str | None = None,
     issue_type: IssueType | None = None,
+    status: IssueStatus | None = None,
+    priority: Priority | None = None,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -157,6 +161,8 @@ def get_board(
         user,
         assignee=assignee,
         issue_type=issue_type.value if issue_type else None,
+        status=status.value if status else None,
+        priority=priority.value if priority else None,
     )
 
 

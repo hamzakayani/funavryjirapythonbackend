@@ -131,6 +131,30 @@ class IssueService:
         require_project_access(self.db, user, project.id)
         return [self.issue_to_out(e) for e in self.issues.list_epics(project.id)]
 
+    def _resolve_assignee_filter(
+        self, assignee: str | None, user: User, project_id: int
+    ) -> tuple[int | None, bool]:
+        """Returns (assignee_id, unassigned) for the given filter value.
+
+        Filtering by a specific user other than yourself is restricted to
+        project leads / super admins, mirroring can_manage_project checks
+        used elsewhere for project-wide visibility.
+        """
+        if not assignee:
+            return None, False
+        if assignee == "me":
+            return user.id, False
+        if assignee == "unassigned":
+            return None, True
+        if assignee.isdigit():
+            target_id = int(assignee)
+            if target_id != user.id and not can_manage_project(self.db, user, project_id):
+                raise HTTPException(
+                    status_code=403, detail="Cannot filter by other users' issues"
+                )
+            return target_id, False
+        return None, False
+
     def get_backlog(
         self,
         project_key: str,
@@ -139,16 +163,12 @@ class IssueService:
         issue_type: str | None = None,
         assignee: str | None = None,
         status: str | None = None,
+        priority: str | None = None,
     ) -> list[IssueOut]:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
         active = self.sprints.get_active(project.id)
-        assignee_id = None
-        unassigned = False
-        if assignee == "me":
-            assignee_id = user.id
-        elif assignee == "unassigned":
-            unassigned = True
+        assignee_id, unassigned = self._resolve_assignee_filter(assignee, user, project.id)
         issues = self.issues.list_backlog(
             project.id,
             active_sprint_id=active.id if active else None,
@@ -156,6 +176,7 @@ class IssueService:
             assignee_id=assignee_id,
             unassigned=unassigned,
             status=status,
+            priority=priority,
         )
         return [self.issue_to_out(i) for i in issues]
 
@@ -178,6 +199,8 @@ class IssueService:
         *,
         assignee: str | None = None,
         issue_type: str | None = None,
+        status: str | None = None,
+        priority: str | None = None,
     ) -> BoardResponse:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
@@ -194,9 +217,14 @@ class IssueService:
                 status=active_sprint.status.value,
                 issue_count=self.issues.count_for_sprint(active_sprint.id, include_archived=True),
             )
-            assignee_id = user.id if assignee == "me" else None
+            assignee_id, unassigned = self._resolve_assignee_filter(assignee, user, project.id)
             for issue in self.issues.list_board(
-                active_sprint.id, assignee_id=assignee_id, issue_type=issue_type
+                active_sprint.id,
+                assignee_id=assignee_id,
+                unassigned=unassigned,
+                issue_type=issue_type,
+                status=status,
+                priority=priority,
             ):
                 out = self.issue_to_out(issue)
                 if issue.status.value in columns:
