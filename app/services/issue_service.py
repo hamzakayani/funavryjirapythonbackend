@@ -328,6 +328,20 @@ class IssueService:
         if not issue:
             raise HTTPException(status_code=404, detail="Issue not found")
         require_project_access(self.db, user, issue.project_id)
+        return self._build_detail(issue)
+
+    def get_issue_public(self, issue_key: str) -> IssueDetailOut:
+        """Read-only issue lookup with no auth/membership check, used for
+        spectator links shared with people outside the project."""
+        issue = self.issues.get_by_key(issue_key.strip())
+        if not issue:
+            raise HTTPException(status_code=404, detail="Issue not found")
+        detail = self.issues.get_detail(issue.id)
+        if not detail:
+            raise HTTPException(status_code=404, detail="Issue not found")
+        return self._build_detail(detail)
+
+    def _build_detail(self, issue: Issue) -> IssueDetailOut:
         base = self.issue_to_out(issue)
         comments = [
             CommentOut(
@@ -374,6 +388,7 @@ class IssueService:
                 parent_out = self.issue_to_out(parent)
         return IssueDetailOut(
             **base.model_dump(),
+            project_key=issue.project.key,
             comments=comments,
             worklogs=worklogs,
             attachments=attachments,

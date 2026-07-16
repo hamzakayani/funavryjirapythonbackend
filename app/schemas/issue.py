@@ -183,6 +183,7 @@ class IssueOut(BaseModel):
 
 
 class IssueDetailOut(IssueOut):
+    project_key: str
     comments: List[CommentOut] = []
     worklogs: List[WorklogOut] = []
     attachments: List[IssueAttachmentOut] = []

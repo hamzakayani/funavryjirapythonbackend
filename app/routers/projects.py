@@ -265,6 +265,12 @@ def get_issue(issue_id: int, user: User = Depends(get_current_user), db: Session
     return IssueService(db).get_issue(issue_id, user)
 
 
+@router.get("/public/issues/{issue_key}", response_model=IssueDetailOut)
+def get_public_issue(issue_key: str, db: Session = Depends(get_db)):
+    """Unauthenticated, read-only issue lookup for shared ticket links."""
+    return IssueService(db).get_issue_public(issue_key)
+
+
 @router.patch("/issues/{issue_id}", response_model=IssueOut)
 def update_issue(
     issue_id: int,
