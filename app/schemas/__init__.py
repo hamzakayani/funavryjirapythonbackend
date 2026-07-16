@@ -43,6 +43,7 @@ from app.schemas.issue import (
     WorklogRequest,
 )
 from app.schemas.notification import NotificationOut, UnreadCountOut
+from app.schemas.spectator import SpectatorViewOut, SpectatorViewRequest
 from app.schemas.analytics import (
     HoursPoint,
     ProjectStatsOut,
@@ -101,4 +102,6 @@ __all__ = [
     "UserReportOut",
     "NotificationOut",
     "UnreadCountOut",
+    "SpectatorViewRequest",
+    "SpectatorViewOut",
 ]

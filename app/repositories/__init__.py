@@ -10,6 +10,7 @@ from app.repositories.worklog import WorklogRepository
 from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.notification import NotificationRepository
+from app.repositories.spectator import SpectatorAccessRepository
 
 __all__ = [
     "UserRepository",
@@ -24,4 +25,5 @@ __all__ = [
     "ActivityLogRepository",
     "AnalyticsRepository",
     "NotificationRepository",
+    "SpectatorAccessRepository",
 ]

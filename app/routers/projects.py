@@ -21,6 +21,8 @@ from app.schemas import (
     ReorderBacklogRequest,
     ReorderStatusRequest,
     SearchResult,
+    SpectatorViewOut,
+    SpectatorViewRequest,
     SprintOut,
     UpdateIssueRequest,
     UpdateMemberRoleRequest,
@@ -28,7 +30,7 @@ from app.schemas import (
     WorklogOut,
     WorklogRequest,
 )
-from app.services import IssueService, ProjectService, SprintService
+from app.services import IssueService, ProjectService, SpectatorService, SprintService
 
 router = APIRouter(tags=["projects"])
 
@@ -265,10 +267,19 @@ def get_issue(issue_id: int, user: User = Depends(get_current_user), db: Session
     return IssueService(db).get_issue(issue_id, user)
 
 
-@router.get("/public/issues/{issue_key}", response_model=IssueDetailOut)
-def get_public_issue(issue_key: str, db: Session = Depends(get_db)):
-    """Unauthenticated, read-only issue lookup for shared ticket links."""
+@router.get("/issues/by-key/{issue_key}", response_model=IssueDetailOut)
+def get_issue_by_key(issue_key: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Read-only lookup for signed-in users without project membership
+    (e.g. following a shared ticket link) — no edit rights, no view cap."""
     return IssueService(db).get_issue_public(issue_key)
+
+
+@router.post("/public/issues/{issue_key}/view", response_model=SpectatorViewOut)
+def spectator_view_issue(issue_key: str, data: SpectatorViewRequest, db: Session = Depends(get_db)):
+    """Unauthenticated, read-only issue view for shared ticket links.
+    Guests must identify themselves and are capped at a fixed number of
+    free views before being asked to register."""
+    return SpectatorService(db).view_issue(issue_key, data.name, data.email)
 
 
 @router.patch("/issues/{issue_id}", response_model=IssueOut)
