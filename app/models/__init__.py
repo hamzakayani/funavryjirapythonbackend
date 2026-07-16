@@ -11,6 +11,7 @@ from app.models.user import User
 from app.models.project import IssueStatusDef, Project, ProjectMember
 from app.models.sprint import Sprint
 from app.models.issue import ActivityLog, Comment, Issue, IssueAttachment, IssueLabel, Worklog
+from app.models.notification import Notification
 
 __all__ = [
     "UserStatus",
@@ -31,4 +32,5 @@ __all__ = [
     "Worklog",
     "IssueAttachment",
     "ActivityLog",
+    "Notification",
 ]

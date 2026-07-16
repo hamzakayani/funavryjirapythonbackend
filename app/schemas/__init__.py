@@ -42,6 +42,7 @@ from app.schemas.issue import (
     WorklogOut,
     WorklogRequest,
 )
+from app.schemas.notification import NotificationOut, UnreadCountOut
 from app.schemas.analytics import (
     HoursPoint,
     ProjectStatsOut,
@@ -98,4 +99,6 @@ __all__ = [
     "SprintStatsOut",
     "UserReportRow",
     "UserReportOut",
+    "NotificationOut",
+    "UnreadCountOut",
 ]

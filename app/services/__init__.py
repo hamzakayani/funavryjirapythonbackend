@@ -5,6 +5,7 @@ from app.services.sprint_service import SprintService
 from app.services.issue_service import IssueService
 from app.services.seed_service import seed_demo_data
 from app.services.analytics_service import AnalyticsService
+from app.services.notification_service import NotificationService
 
 __all__ = [
     "AuthService",
@@ -14,4 +15,5 @@ __all__ = [
     "IssueService",
     "seed_demo_data",
     "AnalyticsService",
+    "NotificationService",
 ]

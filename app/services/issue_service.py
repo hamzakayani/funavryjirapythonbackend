@@ -41,6 +41,7 @@ from app.schemas import (
     WorklogOut,
     WorklogRequest,
 )
+from app.services.notification_service import NotificationService
 from app.services.project_service import ProjectService
 
 MAX_REFERENCE_IMAGE_BYTES = 5 * 1024 * 1024
@@ -60,6 +61,7 @@ class IssueService:
         self.projects = ProjectService(db)
         self.status_defs = IssueStatusRepository(db)
         self.members = ProjectMemberRepository(db)
+        self.notifications = NotificationService(db)
         self._job_role_cache: dict[int, dict[int, str | None]] = {}
 
     def _job_role_map(self, project_id: int) -> dict[int, str | None]:
@@ -316,6 +318,7 @@ class IssueService:
         )
         self.issues.create(issue)
         self.activities.create(issue_id=issue.id, user_id=user.id, action="created")
+        self.notifications.notify_assigned(issue, user, issue.assignee_id)
         self.issues.save()
         issue = self.issues.get_by_id_with_relations(issue.id)
         return self.issue_to_out(issue)
@@ -401,6 +404,7 @@ class IssueService:
                 old_value=old,
                 new_value=issue.status,
             )
+            self.notifications.notify_status_changed(issue, user, issue.status)
         elif not can_edit_issue(self.db, user, issue):
             raise HTTPException(status_code=403, detail="Cannot edit issue")
 
@@ -434,6 +438,8 @@ class IssueService:
                         old_value=str(old_val),
                         new_value=str(new_val),
                     )
+                    if field == "assignee_id":
+                        self.notifications.notify_assigned(issue, user, new_val)
 
         if data.labels is not None:
             self.labels.replace_for_issue(issue, data.labels)
@@ -479,6 +485,7 @@ class IssueService:
         comment = Comment(issue_id=issue.id, author_id=user.id, body=data.body)
         self.comments.create(comment)
         self.activities.create(issue_id=issue.id, user_id=user.id, action="comment_added")
+        self.notifications.notify_comment_added(issue, user)
         self.comments.save()
         self.comments.refresh(comment)
         return CommentOut(
