@@ -20,6 +20,7 @@ from app.repositories import (
     IssueLabelRepository,
     IssueRepository,
     IssueStatusRepository,
+    ProjectMemberRepository,
     SprintRepository,
     WorklogRepository,
 )
@@ -58,6 +59,17 @@ class IssueService:
         self.activities = ActivityLogRepository(db)
         self.projects = ProjectService(db)
         self.status_defs = IssueStatusRepository(db)
+        self.members = ProjectMemberRepository(db)
+        self._job_role_cache: dict[int, dict[int, str | None]] = {}
+
+    def _job_role_map(self, project_id: int) -> dict[int, str | None]:
+        """Cached {user_id: job_role} lookup for a project, avoiding N+1
+        queries when converting a list of issues from the same project."""
+        if project_id not in self._job_role_cache:
+            self._job_role_cache[project_id] = {
+                m.user_id: m.job_role for m in self.members.list_for_project(project_id)
+            }
+        return self._job_role_cache[project_id]
 
     def issue_to_out(self, issue: Issue) -> IssueOut:
         time_logged = self.worklogs.sum_for_issue(issue.id)
@@ -66,6 +78,15 @@ class IssueService:
             if issue.original_estimate_minutes is not None
             else None
         )
+        assignee = None
+        if issue.assignee:
+            job_role = self._job_role_map(issue.project_id).get(issue.assignee.id)
+            assignee = UserMini(
+                id=issue.assignee.id,
+                name=issue.assignee.name,
+                avatar_url=issue.assignee.avatar_url,
+                job_role=job_role,
+            )
         return IssueOut(
             id=issue.id,
             issue_key=issue.issue_key,
@@ -74,7 +95,7 @@ class IssueService:
             issue_type=issue.issue_type.value,
             priority=issue.priority.value,
             status=issue.status,
-            assignee=UserMini(id=issue.assignee.id, name=issue.assignee.name, avatar_url=issue.assignee.avatar_url) if issue.assignee else None,
+            assignee=assignee,
             reporter=UserMini(id=issue.reporter.id, name=issue.reporter.name, avatar_url=issue.reporter.avatar_url),
             sprint_id=issue.sprint_id,
             parent_issue_id=issue.parent_issue_id,

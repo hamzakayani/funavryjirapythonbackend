@@ -10,7 +10,7 @@ from app.routers import admin, analytics, auth, projects
 from app.services import seed_demo_data
 
 app = FastAPI(
-    title="JIRA Clone API",
+    title="Funavry JIRA API",
     version="1.0.0",
     root_path="/jira",
 )

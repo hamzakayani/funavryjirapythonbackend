@@ -102,6 +102,7 @@ class UserMini(BaseModel):
     id: int
     name: str
     avatar_url: Optional[str] = None
+    job_role: Optional[str] = None
 
     class Config:
         from_attributes = True
