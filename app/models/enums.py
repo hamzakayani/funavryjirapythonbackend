@@ -13,6 +13,23 @@ class ProjectRole(str, enum.Enum):
     Member = "Member"
 
 
+# Job-function role a project Lead assigns to a member (distinct from ProjectRole,
+# which only governs Lead/Member authority). Free-form list so new IT roles can be
+# added without a schema migration — stored as a plain string column.
+MEMBER_JOB_ROLES = [
+    "QA",
+    "Frontend",
+    "Backend",
+    "AI Engineer",
+    "Project Manager",
+    "DevOps",
+    "QA Automation",
+    "Scrum Master",
+    "Tech Lead",
+    "Other",
+]
+
+
 class SprintStatus(str, enum.Enum):
     Planned = "Planned"
     Active = "Active"

@@ -2,7 +2,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.deps import can_manage_project, require_project_access
-from app.models import DEFAULT_STATUSES, Issue, IssueStatusDef, User
+from app.models import DEFAULT_STATUSES, MEMBER_JOB_ROLES, Issue, IssueStatusDef, User
 from app.repositories import (
     IssueStatusRepository,
     ProjectMemberRepository,
@@ -15,6 +15,7 @@ from app.schemas import (
     ProjectMemberOut,
     ProjectOut,
     ReorderStatusRequest,
+    UpdateMemberRoleRequest,
     UpdateStatusRequest,
 )
 
@@ -74,6 +75,7 @@ class ProjectService:
                     email=u.email,
                     avatar_url=u.avatar_url,
                     project_role=m.project_role.value,
+                    job_role=m.job_role,
                     assigned_at=m.assigned_at,
                 )
             )
@@ -83,6 +85,24 @@ class ProjectService:
         project = self.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
         return self.build_member_outs(self.members.list_for_project(project.id))
+
+    def update_member_role(
+        self, project_key: str, user_id: int, data: UpdateMemberRoleRequest, user: User
+    ) -> ProjectMemberOut:
+        project = self.get_by_key(project_key)
+        require_project_access(self.db, user, project.id)
+        if not can_manage_project(self.db, user, project.id):
+            raise HTTPException(
+                status_code=403, detail="Only the project lead can assign member roles"
+            )
+        if data.job_role not in MEMBER_JOB_ROLES:
+            raise HTTPException(status_code=400, detail="Invalid role")
+        member = self.members.get(project.id, user_id)
+        if not member:
+            raise HTTPException(status_code=404, detail="Member not found")
+        self.members.set_job_role(member, data.job_role)
+        self.members.save()
+        return self.build_member_outs([member])[0]
 
     def seed_default_statuses(self, project_id: int) -> None:
         """Create the 4 protected default statuses for a newly created project."""

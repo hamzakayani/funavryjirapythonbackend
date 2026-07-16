@@ -35,6 +35,7 @@ class ProjectMember(Base):
     project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     project_role = Column(Enum(ProjectRole), nullable=False)
+    job_role = Column(String(50), nullable=True)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     project = relationship("Project", back_populates="members")

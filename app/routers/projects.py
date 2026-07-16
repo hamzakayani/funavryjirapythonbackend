@@ -23,6 +23,7 @@ from app.schemas import (
     SearchResult,
     SprintOut,
     UpdateIssueRequest,
+    UpdateMemberRoleRequest,
     UpdateStatusRequest,
     WorklogOut,
     WorklogRequest,
@@ -47,6 +48,17 @@ def project_members(
     project_key: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     return ProjectService(db).list_members(project_key, user)
+
+
+@router.patch("/projects/{project_key}/members/{user_id}/role", response_model=ProjectMemberOut)
+def update_member_role(
+    project_key: str,
+    user_id: int,
+    data: UpdateMemberRoleRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).update_member_role(project_key, user_id, data, user)
 
 
 @router.get("/projects/{project_key}/statuses", response_model=list[IssueStatusOut])

@@ -1,5 +1,6 @@
 from app.models.enums import (
     DEFAULT_STATUSES,
+    MEMBER_JOB_ROLES,
     IssueType,
     Priority,
     ProjectRole,
@@ -18,6 +19,7 @@ __all__ = [
     "IssueType",
     "Priority",
     "DEFAULT_STATUSES",
+    "MEMBER_JOB_ROLES",
     "User",
     "Project",
     "ProjectMember",

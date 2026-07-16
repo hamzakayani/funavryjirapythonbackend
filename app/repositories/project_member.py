@@ -36,6 +36,10 @@ class ProjectMemberRepository:
             ProjectMember(project_id=project_id, user_id=user_id, project_role=role)
         )
 
+    def set_job_role(self, member: ProjectMember, job_role: str) -> ProjectMember:
+        member.job_role = job_role
+        return member
+
     def delete(self, member: ProjectMember) -> None:
         self.db.delete(member)
 

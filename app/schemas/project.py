@@ -25,4 +25,9 @@ class ProjectMemberOut(BaseModel):
     email: str
     avatar_url: Optional[str] = None
     project_role: str
+    job_role: Optional[str] = None
     assigned_at: datetime
+
+
+class UpdateMemberRoleRequest(BaseModel):
+    job_role: str

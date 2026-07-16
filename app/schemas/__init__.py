@@ -14,7 +14,7 @@ from app.schemas.admin import (
     UpdateProjectRequest,
     UserAdminOut,
 )
-from app.schemas.project import ProjectMemberOut, ProjectOut
+from app.schemas.project import ProjectMemberOut, ProjectOut, UpdateMemberRoleRequest
 from app.schemas.sprint import (
     CompleteSprintRequest,
     CreateSprintRequest,
@@ -67,6 +67,7 @@ __all__ = [
     "UserAdminOut",
     "ProjectOut",
     "ProjectMemberOut",
+    "UpdateMemberRoleRequest",
     "CreateSprintRequest",
     "SprintOut",
     "IncompleteIssueDecision",
