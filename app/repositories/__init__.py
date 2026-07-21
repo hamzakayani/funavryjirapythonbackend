@@ -11,6 +11,12 @@ from app.repositories.activity_log import ActivityLogRepository
 from app.repositories.analytics import AnalyticsRepository
 from app.repositories.notification import NotificationRepository
 from app.repositories.spectator import SpectatorAccessRepository
+from app.repositories.standup import (
+    StandupAssignedTaskRepository,
+    StandupEntryRepository,
+    StandupLeaveRepository,
+    StandupRepository,
+)
 
 __all__ = [
     "UserRepository",
@@ -26,4 +32,8 @@ __all__ = [
     "AnalyticsRepository",
     "NotificationRepository",
     "SpectatorAccessRepository",
+    "StandupRepository",
+    "StandupEntryRepository",
+    "StandupAssignedTaskRepository",
+    "StandupLeaveRepository",
 ]

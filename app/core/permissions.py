@@ -44,3 +44,9 @@ def can_assign_issue(db: Session, user: User, issue, assignee_id: int | None) ->
     if membership and membership.project_role.value == "Lead":
         return True
     return assignee_id == user.id or (assignee_id is None and issue.assignee_id == user.id)
+
+
+def can_edit_standup_entry(db: Session, user: User, project_id: int, entry_user_id: int) -> bool:
+    if user.is_super_admin or entry_user_id == user.id:
+        return True
+    return can_manage_project(db, user, project_id)

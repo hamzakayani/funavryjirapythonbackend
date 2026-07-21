@@ -1,10 +1,12 @@
 from app.models.enums import (
     DEFAULT_STATUSES,
     MEMBER_JOB_ROLES,
+    AttendanceStatus,
     IssueType,
     Priority,
     ProjectRole,
     SprintStatus,
+    StandupStatus,
     UserStatus,
 )
 from app.models.user import User
@@ -13,6 +15,7 @@ from app.models.sprint import Sprint
 from app.models.issue import ActivityLog, Comment, Issue, IssueAttachment, IssueLabel, Worklog
 from app.models.notification import Notification
 from app.models.spectator import SpectatorAccess
+from app.models.standup import Standup, StandupAssignedTask, StandupEntry, StandupLeave
 
 __all__ = [
     "UserStatus",
@@ -22,6 +25,8 @@ __all__ = [
     "Priority",
     "DEFAULT_STATUSES",
     "MEMBER_JOB_ROLES",
+    "StandupStatus",
+    "AttendanceStatus",
     "User",
     "Project",
     "ProjectMember",
@@ -35,4 +40,8 @@ __all__ = [
     "ActivityLog",
     "Notification",
     "SpectatorAccess",
+    "Standup",
+    "StandupEntry",
+    "StandupAssignedTask",
+    "StandupLeave",
 ]

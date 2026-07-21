@@ -53,6 +53,19 @@ from app.schemas.analytics import (
     UserReportOut,
     UserReportRow,
 )
+from app.schemas.standup import (
+    AssignTaskRequest,
+    AttendanceReportOut,
+    AttendanceReportRow,
+    DeclareLeaveRequest,
+    MarkAttendanceRequest,
+    ProjectLeaveOut,
+    StandupAssignedTaskOut,
+    StandupEntryOut,
+    StandupLeaveOut,
+    StandupOut,
+    UpdateEntryRequest,
+)
 
 __all__ = [
     "RegisterRequest",
@@ -104,4 +117,15 @@ __all__ = [
     "UnreadCountOut",
     "SpectatorViewRequest",
     "SpectatorViewOut",
+    "StandupOut",
+    "StandupEntryOut",
+    "StandupAssignedTaskOut",
+    "MarkAttendanceRequest",
+    "UpdateEntryRequest",
+    "AssignTaskRequest",
+    "DeclareLeaveRequest",
+    "StandupLeaveOut",
+    "ProjectLeaveOut",
+    "AttendanceReportRow",
+    "AttendanceReportOut",
 ]

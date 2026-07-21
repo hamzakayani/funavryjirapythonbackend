@@ -56,3 +56,15 @@ class Priority(str, enum.Enum):
 # Issue.status is a free-form string referencing IssueStatusDef.name — no
 # longer a fixed enum, since projects can define their own custom statuses.
 DEFAULT_STATUSES = ["To Do", "In Progress", "In Review", "Done"]
+
+
+class StandupStatus(str, enum.Enum):
+    InProgress = "InProgress"
+    Completed = "Completed"
+
+
+class AttendanceStatus(str, enum.Enum):
+    Present = "Present"
+    Late = "Late"
+    Absent = "Absent"
+    OnLeave = "On Leave"

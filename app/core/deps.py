@@ -9,6 +9,7 @@ from app.core.permissions import (
     can_assign_issue,
     can_change_issue_status,
     can_edit_issue,
+    can_edit_standup_entry,
     can_manage_project,
     get_project_membership,
 )
@@ -70,4 +71,5 @@ __all__ = [
     "can_edit_issue",
     "can_change_issue_status",
     "can_assign_issue",
+    "can_edit_standup_entry",
 ]
