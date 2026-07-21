@@ -77,7 +77,13 @@ class StandupAssignedTask(Base):
     id = Column(Integer, primary_key=True, index=True)
     standup_entry_id = Column(Integer, ForeignKey("standup_entries.id"), nullable=False)
     issue_id = Column(Integer, ForeignKey("issues.id"), nullable=False)
-    kind = Column(Enum(StandupTaskKind), default=StandupTaskKind.Assigned, nullable=False)
+    # values_callable required: DB stores lowercase values ("assigned") while
+    # member names are PascalCase ("Assigned"). Default Enum() maps by name.
+    kind = Column(
+        Enum(StandupTaskKind, values_callable=lambda enum_cls: [m.value for m in enum_cls]),
+        default=StandupTaskKind.Assigned,
+        nullable=False,
+    )
     created_at = Column(DateTime, default=datetime.utcnow)
 
     entry = relationship("StandupEntry", back_populates="assigned_tasks")
