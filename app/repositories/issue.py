@@ -184,6 +184,7 @@ class IssueRepository:
         return (
             self._with_relations()
             .filter(Issue.sprint_id == sprint_id, Issue.is_archived == False)  # noqa: E712
+            .order_by(Issue.backlog_order.asc(), Issue.created_at.asc())
             .all()
         )
 
