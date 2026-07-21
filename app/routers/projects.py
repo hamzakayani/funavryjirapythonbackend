@@ -26,6 +26,7 @@ from app.schemas import (
     SprintOut,
     UpdateIssueRequest,
     UpdateMemberRoleRequest,
+    UpdateMemberStandupSkipRequest,
     UpdateStatusRequest,
     WorklogOut,
     WorklogRequest,
@@ -61,6 +62,19 @@ def update_member_role(
     db: Session = Depends(get_db),
 ):
     return ProjectService(db).update_member_role(project_key, user_id, data, user)
+
+
+@router.patch(
+    "/projects/{project_key}/members/{user_id}/standup-skip", response_model=ProjectMemberOut
+)
+def update_member_standup_skip(
+    project_key: str,
+    user_id: int,
+    data: UpdateMemberStandupSkipRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ProjectService(db).update_member_standup_skip(project_key, user_id, data, user)
 
 
 @router.get("/projects/{project_key}/statuses", response_model=list[IssueStatusOut])

@@ -137,6 +137,19 @@ def link_completed_task(
     return StandupService(db).link_completed_task(standup_id, user_id, data, user)
 
 
+@router.delete(
+    "/standups/{standup_id}/entries/{user_id}/tasks/{task_id}", response_model=StandupEntryOut
+)
+def remove_standup_task(
+    standup_id: int,
+    user_id: int,
+    task_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return StandupService(db).remove_task(standup_id, user_id, task_id, user)
+
+
 @router.post("/standups/{standup_id}/complete")
 def complete_standup(
     standup_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)

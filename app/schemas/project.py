@@ -26,8 +26,13 @@ class ProjectMemberOut(BaseModel):
     avatar_url: Optional[str] = None
     project_role: str
     job_role: Optional[str] = None
+    skip_standup_tickets: bool = False
     assigned_at: datetime
 
 
 class UpdateMemberRoleRequest(BaseModel):
     job_role: str
+
+
+class UpdateMemberStandupSkipRequest(BaseModel):
+    skip_standup_tickets: bool

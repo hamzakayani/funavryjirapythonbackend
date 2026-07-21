@@ -36,6 +36,9 @@ class ProjectMember(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     project_role = Column(Enum(ProjectRole), nullable=False)
     job_role = Column(String(50), nullable=True)
+    # PMs/QA and similar roles that don't take daily tickets can be excluded
+    # from standup ticket assignment (both "assign task" and "completed ticket").
+    skip_standup_tickets = Column(Boolean, default=False, nullable=False)
     assigned_at = Column(DateTime, default=datetime.utcnow)
 
     project = relationship("Project", back_populates="members")

@@ -40,6 +40,10 @@ class ProjectMemberRepository:
         member.job_role = job_role
         return member
 
+    def set_skip_standup_tickets(self, member: ProjectMember, skip: bool) -> ProjectMember:
+        member.skip_standup_tickets = skip
+        return member
+
     def delete(self, member: ProjectMember) -> None:
         self.db.delete(member)
 

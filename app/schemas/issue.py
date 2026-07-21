@@ -103,6 +103,7 @@ class UserMini(BaseModel):
     name: str
     avatar_url: Optional[str] = None
     job_role: Optional[str] = None
+    skip_standup_tickets: bool = False
 
     class Config:
         from_attributes = True

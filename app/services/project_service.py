@@ -16,6 +16,7 @@ from app.schemas import (
     ProjectOut,
     ReorderStatusRequest,
     UpdateMemberRoleRequest,
+    UpdateMemberStandupSkipRequest,
     UpdateStatusRequest,
 )
 
@@ -76,6 +77,7 @@ class ProjectService:
                     avatar_url=u.avatar_url,
                     project_role=m.project_role.value,
                     job_role=m.job_role,
+                    skip_standup_tickets=m.skip_standup_tickets,
                     assigned_at=m.assigned_at,
                 )
             )
@@ -101,6 +103,24 @@ class ProjectService:
         if not member:
             raise HTTPException(status_code=404, detail="Member not found")
         self.members.set_job_role(member, data.job_role)
+        self.members.save()
+        return self.build_member_outs([member])[0]
+
+    def update_member_standup_skip(
+        self, project_key: str, user_id: int, data: UpdateMemberStandupSkipRequest, user: User
+    ) -> ProjectMemberOut:
+        """Lead-only toggle for members (e.g. PMs/QA) who don't take daily
+        tickets — excludes them from standup ticket assignment prompts."""
+        project = self.get_by_key(project_key)
+        require_project_access(self.db, user, project.id)
+        if not can_manage_project(self.db, user, project.id):
+            raise HTTPException(
+                status_code=403, detail="Only the project lead can change standup ticket settings"
+            )
+        member = self.members.get(project.id, user_id)
+        if not member:
+            raise HTTPException(status_code=404, detail="Member not found")
+        self.members.set_skip_standup_tickets(member, data.skip_standup_tickets)
         self.members.save()
         return self.build_member_outs([member])[0]
 

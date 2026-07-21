@@ -80,6 +80,12 @@ class StandupAssignedTaskRepository:
         self.db.flush()
         return task
 
+    def get_by_id(self, task_id: int) -> Optional[StandupAssignedTask]:
+        return self.db.query(StandupAssignedTask).filter(StandupAssignedTask.id == task_id).first()
+
+    def delete(self, task: StandupAssignedTask) -> None:
+        self.db.delete(task)
+
     def list_for_entry(
         self, entry_id: int, kind: Optional[StandupTaskKind] = None
     ) -> list[StandupAssignedTask]:

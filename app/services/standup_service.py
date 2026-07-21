@@ -64,13 +64,20 @@ class StandupService:
 
     # -- conversion helpers --------------------------------------------------
 
-    def _user_mini(self, user_id: int, job_role_map: dict) -> Optional[UserMini]:
+    def _user_mini(self, user_id: int, member_map: dict) -> Optional[UserMini]:
         u = self.users.get_by_id(user_id)
         if not u:
             return None
-        return UserMini(id=u.id, name=u.name, avatar_url=u.avatar_url, job_role=job_role_map.get(u.id))
+        member = member_map.get(u.id)
+        return UserMini(
+            id=u.id,
+            name=u.name,
+            avatar_url=u.avatar_url,
+            job_role=member.job_role if member else None,
+            skip_standup_tickets=member.skip_standup_tickets if member else False,
+        )
 
-    def _entry_to_out(self, entry: StandupEntry, job_role_map: dict) -> StandupEntryOut:
+    def _entry_to_out(self, entry: StandupEntry, member_map: dict) -> StandupEntryOut:
         assigned = [
             StandupAssignedTaskOut(id=t.id, issue=self.issues.issue_to_out(t.issue))
             for t in self.assigned_tasks.list_for_entry(entry.id, kind=StandupTaskKind.Assigned)
@@ -81,20 +88,20 @@ class StandupService:
         ]
         return StandupEntryOut(
             id=entry.id,
-            user=self._user_mini(entry.user_id, job_role_map),
+            user=self._user_mini(entry.user_id, member_map),
             attendance_status=entry.attendance_status.value,
             yesterday_summary=entry.yesterday_summary,
             blockers=entry.blockers,
             is_blocked=entry.is_blocked,
-            marked_by=self._user_mini(entry.marked_by, job_role_map) if entry.marked_by else None,
+            marked_by=self._user_mini(entry.marked_by, member_map) if entry.marked_by else None,
             marked_at=entry.marked_at,
             assigned_tasks=assigned,
             completed_tasks=completed,
         )
 
     def _standup_to_out(self, standup: Standup, project_key: str) -> StandupOut:
-        job_role_map = {
-            m.user_id: m.job_role for m in self.members.list_for_project(standup.project_id)
+        member_map = {
+            m.user_id: m for m in self.members.list_for_project(standup.project_id)
         }
         entries = self.entries.list_for_standup(standup.id)
         return StandupOut(
@@ -102,10 +109,10 @@ class StandupService:
             project_key=project_key,
             date=standup.date,
             status=standup.status.value,
-            created_by=self._user_mini(standup.created_by, job_role_map),
+            created_by=self._user_mini(standup.created_by, member_map),
             started_at=standup.started_at,
             completed_at=standup.completed_at,
-            entries=[self._entry_to_out(e, job_role_map) for e in entries],
+            entries=[self._entry_to_out(e, member_map) for e in entries],
         )
 
     def _get_standup(self, standup_id: int) -> Standup:
@@ -184,8 +191,8 @@ class StandupService:
         entry.marked_by = user.id
         entry.marked_at = datetime.utcnow()
         self.entries.save()
-        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(standup.project_id)}
-        return self._entry_to_out(entry, job_role_map)
+        member_map = {m.user_id: m for m in self.members.list_for_project(standup.project_id)}
+        return self._entry_to_out(entry, member_map)
 
     def update_entry(
         self, standup_id: int, target_user_id: int, data: UpdateEntryRequest, user: User
@@ -203,8 +210,8 @@ class StandupService:
         if "is_blocked" in updates:
             entry.is_blocked = data.is_blocked
         self.entries.save()
-        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(standup.project_id)}
-        return self._entry_to_out(entry, job_role_map)
+        member_map = {m.user_id: m for m in self.members.list_for_project(standup.project_id)}
+        return self._entry_to_out(entry, member_map)
 
     def assign_task(
         self, standup_id: int, target_user_id: int, data: AssignTaskRequest, user: User
@@ -213,6 +220,11 @@ class StandupService:
         require_project_access(self.db, user, standup.project_id)
         if not can_manage_project(self.db, user, standup.project_id):
             raise HTTPException(status_code=403, detail="Cannot assign tasks in this standup")
+        target_member = self.members.get(standup.project_id, target_user_id)
+        if target_member and target_member.skip_standup_tickets:
+            raise HTTPException(
+                status_code=422, detail="This member is excluded from standup ticket assignment"
+            )
         entry = self._get_entry_or_404(standup_id, target_user_id)
 
         if bool(data.issue_id) == bool(data.new_issue):
@@ -243,8 +255,8 @@ class StandupService:
             )
             self.assigned_tasks.save()
 
-        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(standup.project_id)}
-        return self._entry_to_out(entry, job_role_map)
+        member_map = {m.user_id: m for m in self.members.list_for_project(standup.project_id)}
+        return self._entry_to_out(entry, member_map)
 
     def link_completed_task(
         self, standup_id: int, target_user_id: int, data: LinkCompletedTaskRequest, user: User
@@ -258,6 +270,11 @@ class StandupService:
         require_project_access(self.db, user, standup.project_id)
         if not can_edit_standup_entry(self.db, user, standup.project_id, target_user_id):
             raise HTTPException(status_code=403, detail="Cannot edit this standup entry")
+        target_member = self.members.get(standup.project_id, target_user_id)
+        if target_member and target_member.skip_standup_tickets:
+            raise HTTPException(
+                status_code=422, detail="This member is excluded from standup ticket assignment"
+            )
         entry = self._get_entry_or_404(standup_id, target_user_id)
 
         issue = self.issue_repo.get_by_id(data.issue_id)
@@ -274,8 +291,37 @@ class StandupService:
             )
             self.assigned_tasks.save()
 
-        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(standup.project_id)}
-        return self._entry_to_out(entry, job_role_map)
+        member_map = {m.user_id: m for m in self.members.list_for_project(standup.project_id)}
+        return self._entry_to_out(entry, member_map)
+
+    def remove_task(
+        self, standup_id: int, target_user_id: int, task_id: int, user: User
+    ) -> StandupEntryOut:
+        """Undo an accidental assign/complete — same permission split as the
+        action that created it: Lead-only for today's assigned tasks,
+        self-or-Lead for yesterday's completed tickets."""
+        standup = self._get_standup(standup_id)
+        require_project_access(self.db, user, standup.project_id)
+        entry = self._get_entry_or_404(standup_id, target_user_id)
+
+        task = self.assigned_tasks.get_by_id(task_id)
+        if not task or task.standup_entry_id != entry.id:
+            raise HTTPException(status_code=404, detail="Standup task not found")
+
+        if task.kind == StandupTaskKind.Assigned:
+            if not can_manage_project(self.db, user, standup.project_id):
+                raise HTTPException(
+                    status_code=403, detail="Only the project lead can remove today's task"
+                )
+        else:
+            if not can_edit_standup_entry(self.db, user, standup.project_id, target_user_id):
+                raise HTTPException(status_code=403, detail="Cannot edit this standup entry")
+
+        self.assigned_tasks.delete(task)
+        self.assigned_tasks.save()
+
+        member_map = {m.user_id: m for m in self.members.list_for_project(standup.project_id)}
+        return self._entry_to_out(entry, member_map)
 
     def complete_standup(self, standup_id: int, user: User) -> dict:
         standup = self._get_standup(standup_id)
@@ -320,13 +366,13 @@ class StandupService:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
         today = date.today()
-        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(project.id)}
+        member_map = {m.user_id: m for m in self.members.list_for_project(project.id)}
         result = []
         for member in self.members.list_for_project(project.id):
             for leave in self.leaves.list_for_user(member.user_id):
                 if leave.end_date < today:
                     continue
-                mini = self._user_mini(member.user_id, job_role_map)
+                mini = self._user_mini(member.user_id, member_map)
                 if not mini:
                     continue
                 result.append(
@@ -361,10 +407,10 @@ class StandupService:
                 bucket = counts.setdefault(entry.user_id, {k: 0 for k in ATTENDANCE_BUCKETS})
                 bucket[entry.attendance_status.value] += 1
 
-        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(project.id)}
+        member_map = {m.user_id: m for m in self.members.list_for_project(project.id)}
         rows = []
         for user_id, bucket in counts.items():
-            mini = self._user_mini(user_id, job_role_map)
+            mini = self._user_mini(user_id, member_map)
             if not mini:
                 continue
             rows.append(
