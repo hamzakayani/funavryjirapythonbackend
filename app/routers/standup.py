@@ -14,9 +14,12 @@ from app.schemas import (
     LinkCompletedTaskRequest,
     MarkAttendanceRequest,
     ProjectLeaveOut,
+    StandupCompleteOut,
     StandupEntryOut,
+    StandupHistoryDayOut,
     StandupLeaveOut,
     StandupOut,
+    StandupSummaryOut,
     UpdateEntryRequest,
 )
 from app.services import StandupService
@@ -38,7 +41,9 @@ def start_today_standup(
     return StandupService(db).start_today(project_key, user)
 
 
-@router.get("/projects/{project_key}/standup/history", response_model=list[StandupOut])
+@router.get(
+    "/projects/{project_key}/standup/history", response_model=list[StandupHistoryDayOut]
+)
 def get_standup_history(
     project_key: str,
     range: str = "monthly",
@@ -85,6 +90,13 @@ def get_standup(
     standup_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):
     return StandupService(db).get_standup(standup_id, user)
+
+
+@router.get("/standups/{standup_id}/summary-text", response_model=StandupSummaryOut)
+def get_standup_summary_text(
+    standup_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return StandupService(db).get_summary_text(standup_id, user)
 
 
 @router.patch(
@@ -150,7 +162,7 @@ def remove_standup_task(
     return StandupService(db).remove_task(standup_id, user_id, task_id, user)
 
 
-@router.post("/standups/{standup_id}/complete")
+@router.post("/standups/{standup_id}/complete", response_model=StandupCompleteOut)
 def complete_standup(
     standup_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)
 ):

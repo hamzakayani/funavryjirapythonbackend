@@ -67,9 +67,12 @@ from app.schemas.standup import (
     MarkAttendanceRequest,
     ProjectLeaveOut,
     StandupAssignedTaskOut,
+    StandupCompleteOut,
     StandupEntryOut,
+    StandupHistoryDayOut,
     StandupLeaveOut,
     StandupOut,
+    StandupSummaryOut,
     UpdateEntryRequest,
 )
 
@@ -127,6 +130,9 @@ __all__ = [
     "StandupOut",
     "StandupEntryOut",
     "StandupAssignedTaskOut",
+    "StandupSummaryOut",
+    "StandupCompleteOut",
+    "StandupHistoryDayOut",
     "MarkAttendanceRequest",
     "UpdateEntryRequest",
     "AssignTaskRequest",

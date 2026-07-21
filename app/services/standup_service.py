@@ -1,9 +1,10 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.date_ranges import resolve_range
 from app.core.deps import can_edit_standup_entry, can_manage_project, require_project_access
 from app.models import (
@@ -35,9 +36,12 @@ from app.schemas import (
     MarkAttendanceRequest,
     ProjectLeaveOut,
     StandupAssignedTaskOut,
+    StandupCompleteOut,
     StandupEntryOut,
+    StandupHistoryDayOut,
     StandupLeaveOut,
     StandupOut,
+    StandupSummaryOut,
     UpdateEntryRequest,
     UpdateIssueRequest,
     UserMini,
@@ -46,6 +50,7 @@ from app.services.issue_service import IssueService
 from app.services.project_service import ProjectService
 
 ATTENDANCE_BUCKETS = ["Present", "Late", "Absent", "On Leave"]
+WEEKDAY_MON_FRI = {0, 1, 2, 3, 4}  # Monday=0 … Friday=4
 
 
 class StandupService:
@@ -127,6 +132,31 @@ class StandupService:
             raise HTTPException(status_code=404, detail="Standup entry not found")
         return entry
 
+    def _issue_url(self, project_key: str, issue_key: str) -> str:
+        base = settings.frontend_url.rstrip("/")
+        return f"{base}/projects/{project_key}/issues/{issue_key}"
+
+    def _build_summary_text(self, standup: Standup, project_key: str) -> str:
+        """Plain-text digest for pasting into Slack/Teams after the meeting."""
+        date_label = standup.date.strftime("%d-%B-%Y")
+        lines = [f"Standup Meeting ({date_label})", "Today Task:", ""]
+        entries = self.entries.list_for_standup(standup.id)
+        for entry in entries:
+            tasks = self.assigned_tasks.list_for_entry(entry.id, kind=StandupTaskKind.Assigned)
+            if not tasks:
+                continue
+            user = self.users.get_by_id(entry.user_id)
+            if not user:
+                continue
+            lines.append(user.name)
+            for task in tasks:
+                issue = task.issue or self.issue_repo.get_by_id(task.issue_id)
+                if not issue:
+                    continue
+                lines.append(self._issue_url(project_key, issue.issue_key))
+            lines.append("")
+        return "\n".join(lines).rstrip() + "\n"
+
     # -- core lifecycle -------------------------------------------------------
 
     def get_today(self, project_key: str, user: User) -> Optional[StandupOut]:
@@ -173,11 +203,66 @@ class StandupService:
         project = self.project_repo.get_by_id(standup.project_id)
         return self._standup_to_out(standup, project.key)
 
-    def get_history(self, project_key: str, user: User, start: date, end: date) -> list[StandupOut]:
+    def get_history(
+        self, project_key: str, user: User, start: date, end: date
+    ) -> list[StandupHistoryDayOut]:
+        """Weekday calendar (Mon–Fri) for the range: Completed / InProgress / Missed.
+
+        Sat/Sun are omitted. Future weekdays are omitted. A past weekday left
+        InProgress counts as Missed (meeting never finished); today InProgress
+        stays InProgress.
+        """
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
         standups = self.standups.list_for_project(project.id, start, end)
-        return [self._standup_to_out(s, project.key) for s in standups]
+        by_date = {s.date: s for s in standups}
+
+        today = date.today()
+        effective_end = min(end, today)
+        days: list[StandupHistoryDayOut] = []
+        cursor = start
+        while cursor <= effective_end:
+            if cursor.weekday() in WEEKDAY_MON_FRI:
+                standup = by_date.get(cursor)
+                if standup is None:
+                    days.append(
+                        StandupHistoryDayOut(date=cursor, day_status="Missed", standup=None)
+                    )
+                elif standup.status == StandupStatus.Completed:
+                    days.append(
+                        StandupHistoryDayOut(
+                            date=cursor,
+                            day_status="Completed",
+                            standup=self._standup_to_out(standup, project.key),
+                        )
+                    )
+                elif cursor == today:
+                    days.append(
+                        StandupHistoryDayOut(
+                            date=cursor,
+                            day_status="InProgress",
+                            standup=self._standup_to_out(standup, project.key),
+                        )
+                    )
+                else:
+                    # Past InProgress → never finished → Missed (still attach row)
+                    days.append(
+                        StandupHistoryDayOut(
+                            date=cursor,
+                            day_status="Missed",
+                            standup=self._standup_to_out(standup, project.key),
+                        )
+                    )
+            cursor += timedelta(days=1)
+
+        days.sort(key=lambda d: d.date, reverse=True)
+        return days
+
+    def get_summary_text(self, standup_id: int, user: User) -> StandupSummaryOut:
+        standup = self._get_standup(standup_id)
+        require_project_access(self.db, user, standup.project_id)
+        project = self.project_repo.get_by_id(standup.project_id)
+        return StandupSummaryOut(text=self._build_summary_text(standup, project.key))
 
     def mark_attendance(
         self, standup_id: int, target_user_id: int, data: MarkAttendanceRequest, user: User
@@ -323,7 +408,7 @@ class StandupService:
         member_map = {m.user_id: m for m in self.members.list_for_project(standup.project_id)}
         return self._entry_to_out(entry, member_map)
 
-    def complete_standup(self, standup_id: int, user: User) -> dict:
+    def complete_standup(self, standup_id: int, user: User) -> StandupCompleteOut:
         standup = self._get_standup(standup_id)
         require_project_access(self.db, user, standup.project_id)
         if not can_manage_project(self.db, user, standup.project_id):
@@ -339,7 +424,12 @@ class StandupService:
         standup.status = StandupStatus.Completed
         standup.completed_at = datetime.utcnow()
         self.standups.save()
-        return {"message": "Standup completed", "unmarked_user_ids": unmarked_user_ids}
+        project = self.project_repo.get_by_id(standup.project_id)
+        return StandupCompleteOut(
+            message="Standup completed",
+            unmarked_user_ids=unmarked_user_ids,
+            summary_text=self._build_summary_text(standup, project.key),
+        )
 
     # -- leave ----------------------------------------------------------------
 

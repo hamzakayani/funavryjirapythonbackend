@@ -45,6 +45,22 @@ class StandupOut(BaseModel):
         from_attributes = True
 
 
+class StandupSummaryOut(BaseModel):
+    text: str
+
+
+class StandupCompleteOut(BaseModel):
+    message: str
+    unmarked_user_ids: List[int]
+    summary_text: str
+
+
+class StandupHistoryDayOut(BaseModel):
+    date: date
+    day_status: str  # Completed | InProgress | Missed
+    standup: Optional[StandupOut] = None
+
+
 class MarkAttendanceRequest(BaseModel):
     status: AttendanceStatus
 
