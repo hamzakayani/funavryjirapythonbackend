@@ -15,7 +15,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-from app.models.enums import AttendanceStatus, StandupStatus
+from app.models.enums import AttendanceStatus, StandupStatus, StandupTaskKind
 
 
 class Standup(Base):
@@ -69,12 +69,15 @@ class StandupAssignedTask(Base):
 
     __tablename__ = "standup_assigned_tasks"
     __table_args__ = (
-        UniqueConstraint("standup_entry_id", "issue_id", name="uq_standup_task_entry_issue"),
+        UniqueConstraint(
+            "standup_entry_id", "issue_id", "kind", name="uq_standup_task_entry_issue_kind"
+        ),
     )
 
     id = Column(Integer, primary_key=True, index=True)
     standup_entry_id = Column(Integer, ForeignKey("standup_entries.id"), nullable=False)
     issue_id = Column(Integer, ForeignKey("issues.id"), nullable=False)
+    kind = Column(Enum(StandupTaskKind), default=StandupTaskKind.Assigned, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     entry = relationship("StandupEntry", back_populates="assigned_tasks")

@@ -3,7 +3,7 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import Standup, StandupAssignedTask, StandupEntry, StandupLeave
+from app.models import Standup, StandupAssignedTask, StandupEntry, StandupLeave, StandupTaskKind
 
 
 class StandupRepository:
@@ -80,19 +80,23 @@ class StandupAssignedTaskRepository:
         self.db.flush()
         return task
 
-    def list_for_entry(self, entry_id: int) -> list[StandupAssignedTask]:
-        return (
-            self.db.query(StandupAssignedTask)
-            .filter(StandupAssignedTask.standup_entry_id == entry_id)
-            .all()
+    def list_for_entry(
+        self, entry_id: int, kind: Optional[StandupTaskKind] = None
+    ) -> list[StandupAssignedTask]:
+        q = self.db.query(StandupAssignedTask).filter(
+            StandupAssignedTask.standup_entry_id == entry_id
         )
+        if kind is not None:
+            q = q.filter(StandupAssignedTask.kind == kind)
+        return q.all()
 
-    def exists(self, entry_id: int, issue_id: int) -> bool:
+    def exists(self, entry_id: int, issue_id: int, kind: StandupTaskKind) -> bool:
         return (
             self.db.query(StandupAssignedTask)
             .filter(
                 StandupAssignedTask.standup_entry_id == entry_id,
                 StandupAssignedTask.issue_id == issue_id,
+                StandupAssignedTask.kind == kind,
             )
             .first()
             is not None

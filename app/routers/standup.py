@@ -11,6 +11,7 @@ from app.schemas import (
     AssignTaskRequest,
     AttendanceReportOut,
     DeclareLeaveRequest,
+    LinkCompletedTaskRequest,
     MarkAttendanceRequest,
     ProjectLeaveOut,
     StandupEntryOut,
@@ -121,6 +122,19 @@ def assign_task(
     db: Session = Depends(get_db),
 ):
     return StandupService(db).assign_task(standup_id, user_id, data, user)
+
+
+@router.post(
+    "/standups/{standup_id}/entries/{user_id}/link-completed-task", response_model=StandupEntryOut
+)
+def link_completed_task(
+    standup_id: int,
+    user_id: int,
+    data: LinkCompletedTaskRequest,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return StandupService(db).link_completed_task(standup_id, user_id, data, user)
 
 
 @router.post("/standups/{standup_id}/complete")

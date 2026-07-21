@@ -7,6 +7,7 @@ from app.models.enums import (
     ProjectRole,
     SprintStatus,
     StandupStatus,
+    StandupTaskKind,
     UserStatus,
 )
 from app.models.user import User
@@ -26,6 +27,7 @@ __all__ = [
     "DEFAULT_STATUSES",
     "MEMBER_JOB_ROLES",
     "StandupStatus",
+    "StandupTaskKind",
     "AttendanceStatus",
     "User",
     "Project",

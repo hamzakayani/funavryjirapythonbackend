@@ -13,6 +13,7 @@ from app.models import (
     StandupEntry,
     StandupLeave,
     StandupStatus,
+    StandupTaskKind,
     User,
 )
 from app.repositories import (
@@ -30,6 +31,7 @@ from app.schemas import (
     AttendanceReportOut,
     AttendanceReportRow,
     DeclareLeaveRequest,
+    LinkCompletedTaskRequest,
     MarkAttendanceRequest,
     ProjectLeaveOut,
     StandupAssignedTaskOut,
@@ -69,9 +71,13 @@ class StandupService:
         return UserMini(id=u.id, name=u.name, avatar_url=u.avatar_url, job_role=job_role_map.get(u.id))
 
     def _entry_to_out(self, entry: StandupEntry, job_role_map: dict) -> StandupEntryOut:
-        tasks = [
+        assigned = [
             StandupAssignedTaskOut(id=t.id, issue=self.issues.issue_to_out(t.issue))
-            for t in self.assigned_tasks.list_for_entry(entry.id)
+            for t in self.assigned_tasks.list_for_entry(entry.id, kind=StandupTaskKind.Assigned)
+        ]
+        completed = [
+            StandupAssignedTaskOut(id=t.id, issue=self.issues.issue_to_out(t.issue))
+            for t in self.assigned_tasks.list_for_entry(entry.id, kind=StandupTaskKind.Completed)
         ]
         return StandupEntryOut(
             id=entry.id,
@@ -82,7 +88,8 @@ class StandupService:
             is_blocked=entry.is_blocked,
             marked_by=self._user_mini(entry.marked_by, job_role_map) if entry.marked_by else None,
             marked_at=entry.marked_at,
-            assigned_tasks=tasks,
+            assigned_tasks=assigned,
+            completed_tasks=completed,
         )
 
     def _standup_to_out(self, standup: Standup, project_key: str) -> StandupOut:
@@ -228,9 +235,42 @@ class StandupService:
             )
             issue_id = data.issue_id
 
-        if not self.assigned_tasks.exists(entry.id, issue_id):
+        if not self.assigned_tasks.exists(entry.id, issue_id, StandupTaskKind.Assigned):
             self.assigned_tasks.create(
-                StandupAssignedTask(standup_entry_id=entry.id, issue_id=issue_id)
+                StandupAssignedTask(
+                    standup_entry_id=entry.id, issue_id=issue_id, kind=StandupTaskKind.Assigned
+                )
+            )
+            self.assigned_tasks.save()
+
+        job_role_map = {m.user_id: m.job_role for m in self.members.list_for_project(standup.project_id)}
+        return self._entry_to_out(entry, job_role_map)
+
+    def link_completed_task(
+        self, standup_id: int, target_user_id: int, data: LinkCompletedTaskRequest, user: User
+    ) -> StandupEntryOut:
+        """Attach an existing ticket to the Yesterday side of a member's entry
+        (e.g. 'this is what I finished') — separate from assign_task, which
+        governs the Today side. Follows the same self-or-Lead rule as the
+        rest of the Yesterday/Blockers self-report, not the Lead-only
+        assignment gate."""
+        standup = self._get_standup(standup_id)
+        require_project_access(self.db, user, standup.project_id)
+        if not can_edit_standup_entry(self.db, user, standup.project_id, target_user_id):
+            raise HTTPException(status_code=403, detail="Cannot edit this standup entry")
+        entry = self._get_entry_or_404(standup_id, target_user_id)
+
+        issue = self.issue_repo.get_by_id(data.issue_id)
+        if not issue or issue.project_id != standup.project_id:
+            raise HTTPException(status_code=404, detail="Issue not found in this project")
+
+        if not self.assigned_tasks.exists(entry.id, data.issue_id, StandupTaskKind.Completed):
+            self.assigned_tasks.create(
+                StandupAssignedTask(
+                    standup_entry_id=entry.id,
+                    issue_id=data.issue_id,
+                    kind=StandupTaskKind.Completed,
+                )
             )
             self.assigned_tasks.save()
 

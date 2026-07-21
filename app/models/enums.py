@@ -68,3 +68,10 @@ class AttendanceStatus(str, enum.Enum):
     Late = "Late"
     Absent = "Absent"
     OnLeave = "On Leave"
+
+
+# Distinguishes a StandupAssignedTask row linked as "today's work" (Assigned)
+# from one linked as "what I finished" on the Yesterday side of the same entry.
+class StandupTaskKind(str, enum.Enum):
+    Assigned = "assigned"
+    Completed = "completed"

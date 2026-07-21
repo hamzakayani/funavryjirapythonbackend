@@ -25,6 +25,7 @@ class StandupEntryOut(BaseModel):
     marked_by: Optional[UserMini] = None
     marked_at: Optional[datetime] = None
     assigned_tasks: List[StandupAssignedTaskOut] = []
+    completed_tasks: List[StandupAssignedTaskOut] = []
 
     class Config:
         from_attributes = True
@@ -57,6 +58,10 @@ class UpdateEntryRequest(BaseModel):
 class AssignTaskRequest(BaseModel):
     issue_id: Optional[int] = None
     new_issue: Optional[CreateIssueRequest] = None
+
+
+class LinkCompletedTaskRequest(BaseModel):
+    issue_id: int
 
 
 class DeclareLeaveRequest(BaseModel):
