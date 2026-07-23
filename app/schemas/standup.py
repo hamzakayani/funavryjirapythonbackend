@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 
 from app.models.enums import AttendanceStatus
 from app.schemas.issue import CreateIssueRequest, IssueOut, UserMini
+from app.schemas.types import UTCDateTime
 
 
 class StandupAssignedTaskOut(BaseModel):
@@ -23,7 +24,7 @@ class StandupEntryOut(BaseModel):
     blockers: Optional[str] = None
     is_blocked: bool = False
     marked_by: Optional[UserMini] = None
-    marked_at: Optional[datetime] = None
+    marked_at: Optional[UTCDateTime] = None
     assigned_tasks: List[StandupAssignedTaskOut] = []
     completed_tasks: List[StandupAssignedTaskOut] = []
 
@@ -37,8 +38,8 @@ class StandupOut(BaseModel):
     date: date
     status: str
     created_by: UserMini
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
+    started_at: Optional[UTCDateTime] = None
+    completed_at: Optional[UTCDateTime] = None
     entries: List[StandupEntryOut] = []
 
     class Config:

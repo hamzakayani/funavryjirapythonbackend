@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from app.models.enums import IssueType, Priority
 from app.schemas.sprint import SprintOut
+from app.schemas.types import UTCDateTime
 
 
 class CreateIssueRequest(BaseModel):
@@ -113,7 +114,7 @@ class CommentOut(BaseModel):
     id: int
     body: str
     author: UserMini
-    created_at: datetime
+    created_at: UTCDateTime
 
     class Config:
         from_attributes = True
@@ -125,7 +126,7 @@ class WorklogOut(BaseModel):
     time_spent_minutes: int
     description: Optional[str]
     user: UserMini
-    created_at: datetime
+    created_at: UTCDateTime
 
     class Config:
         from_attributes = True
@@ -138,7 +139,7 @@ class IssueAttachmentOut(BaseModel):
     file_size: int
     file_url: str
     uploaded_by: UserMini
-    created_at: datetime
+    created_at: UTCDateTime
 
     class Config:
         from_attributes = True
@@ -151,7 +152,7 @@ class ActivityOut(BaseModel):
     old_value: Optional[str]
     new_value: Optional[str]
     user: UserMini
-    created_at: datetime
+    created_at: UTCDateTime
 
     class Config:
         from_attributes = True
@@ -176,8 +177,8 @@ class IssueOut(BaseModel):
     due_date: Optional[date] = None
     labels: List[str] = []
     backlog_order: int = 0
-    created_at: datetime
-    updated_at: datetime
+    created_at: UTCDateTime
+    updated_at: UTCDateTime
 
     class Config:
         from_attributes = True

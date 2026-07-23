@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel
+from app.schemas.types import UTCDateTime
 
 
 class ProjectOut(BaseModel):
@@ -27,7 +28,7 @@ class ProjectMemberOut(BaseModel):
     project_role: str
     job_role: Optional[str] = None
     skip_standup_tickets: bool = False
-    assigned_at: datetime
+    assigned_at: UTCDateTime
 
 
 class UpdateMemberRoleRequest(BaseModel):

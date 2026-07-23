@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field
+from app.schemas.types import UTCDateTime
 
 
 class RejectUserRequest(BaseModel):
@@ -34,7 +35,7 @@ class UserAdminOut(BaseModel):
     status: str
     is_super_admin: bool
     rejection_reason: Optional[str] = None
-    created_at: datetime
+    created_at: UTCDateTime
 
     class Config:
         from_attributes = True
