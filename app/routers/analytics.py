@@ -5,6 +5,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.deps import get_current_user
+from app.core.timezone import today_pkt
 from app.database import get_db
 from app.models import User
 from app.repositories import SprintRepository
@@ -48,7 +49,7 @@ def export_project_analytics(
     content = AnalyticsService(db).project_stats_export(
         project_key, user, range, start_date, end_date
     )
-    filename = f"{project_key}-analytics-{date.today().isoformat()}.xlsx"
+    filename = f"{project_key}-analytics-{today_pkt().isoformat()}.xlsx"
     return _attachment(content, filename)
 
 
@@ -73,7 +74,7 @@ def export_sprint_issues(
     content = AnalyticsService(db).sprint_issues_export(sprint_id, user)
     sprint = SprintRepository(db).get_by_id(sprint_id)
     sprint_name = sprint.name if sprint else str(sprint_id)
-    filename = f"{sprint_name}-issues-{date.today().isoformat()}.xlsx"
+    filename = f"{sprint_name}-issues-{today_pkt().isoformat()}.xlsx"
     return _attachment(content, filename)
 
 
@@ -101,7 +102,7 @@ def export_project_user_report(
     content = AnalyticsService(db).project_user_report_export(
         project_key, user, range, start_date, end_date
     )
-    filename = f"{project_key}-user-report-{date.today().isoformat()}.xlsx"
+    filename = f"{project_key}-user-report-{today_pkt().isoformat()}.xlsx"
     return _attachment(content, filename)
 
 

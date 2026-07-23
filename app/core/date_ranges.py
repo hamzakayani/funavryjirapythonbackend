@@ -2,6 +2,8 @@ from datetime import date, timedelta
 
 from fastapi import HTTPException
 
+from app.core.timezone import today_pkt
+
 VALID_RANGES = {"weekly", "biweekly", "monthly", "custom"}
 
 
@@ -13,7 +15,7 @@ def resolve_range(
     today: date | None = None,
 ) -> tuple[date, date]:
     """Turn a range keyword (+ optional custom bounds) into an inclusive (start, end) pair."""
-    today = today or date.today()
+    today = today or today_pkt()
     if range_ not in VALID_RANGES:
         raise HTTPException(status_code=422, detail=f"Invalid range: {range_}")
     if range_ == "weekly":

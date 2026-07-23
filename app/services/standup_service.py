@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.date_ranges import resolve_range
 from app.core.deps import can_edit_standup_entry, can_manage_project, require_project_access
+from app.core.timezone import is_after_standup_cutoff, today_pkt
 from app.models import (
     AttendanceStatus,
     Standup,
@@ -165,7 +166,7 @@ class StandupService:
         not something to paper over by auto-creating on the first page view."""
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
-        standup = self.standups.get_by_project_and_date(project.id, date.today())
+        standup = self.standups.get_by_project_and_date(project.id, today_pkt())
         if not standup:
             return None
         return self._standup_to_out(standup, project.key)
@@ -177,7 +178,7 @@ class StandupService:
         require_project_access(self.db, user, project.id)
         if not can_manage_project(self.db, user, project.id):
             raise HTTPException(status_code=403, detail="Only the project lead can start standup")
-        today = date.today()
+        today = today_pkt()
         standup = self.standups.get_by_project_and_date(project.id, today)
         if not standup:
             standup = Standup(project_id=project.id, date=today, created_by=user.id)
@@ -232,18 +233,19 @@ class StandupService:
     def get_history(
         self, project_key: str, user: User, start: date, end: date
     ) -> list[StandupHistoryDayOut]:
-        """Weekday calendar (Mon–Fri) for the range: Completed / InProgress / Missed.
+        """Weekday calendar (Mon–Fri) for the range: Completed / Late / InProgress / Missed.
 
         Sat/Sun are omitted. Future weekdays are omitted. A past weekday left
         InProgress counts as Missed (meeting never finished); today InProgress
-        stays InProgress.
+        stays InProgress. A standup completed at/after 3 PM PKT is "Late"
+        rather than "Completed" — conducted, but not on time.
         """
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
         standups = self.standups.list_for_project(project.id, start, end)
         by_date = {s.date: s for s in standups}
 
-        today = date.today()
+        today = today_pkt()
         effective_end = min(end, today)
         days: list[StandupHistoryDayOut] = []
         cursor = start
@@ -255,10 +257,13 @@ class StandupService:
                         StandupHistoryDayOut(date=cursor, day_status="Missed", standup=None)
                     )
                 elif standup.status == StandupStatus.Completed:
+                    late = standup.completed_at is not None and is_after_standup_cutoff(
+                        standup.completed_at
+                    )
                     days.append(
                         StandupHistoryDayOut(
                             date=cursor,
-                            day_status="Completed",
+                            day_status="Late" if late else "Completed",
                             standup=self._standup_to_out(standup, project.key),
                         )
                     )
@@ -481,7 +486,7 @@ class StandupService:
     def list_project_leave(self, project_key: str, user: User) -> list[ProjectLeaveOut]:
         project = self.projects.get_by_key(project_key)
         require_project_access(self.db, user, project.id)
-        today = date.today()
+        today = today_pkt()
         member_map = {m.user_id: m for m in self.members.list_for_project(project.id)}
         result = []
         for member in self.members.list_for_project(project.id):

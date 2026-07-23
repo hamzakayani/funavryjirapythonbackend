@@ -57,7 +57,7 @@ class StandupCompleteOut(BaseModel):
 
 class StandupHistoryDayOut(BaseModel):
     date: date
-    day_status: str  # Completed | InProgress | Missed
+    day_status: str  # Completed | Late | InProgress | Missed
     standup: Optional[StandupOut] = None
 
 

@@ -6,6 +6,7 @@ from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.core.timezone import today_pkt
 from app.core.deps import (
     can_assign_issue,
     can_change_issue_status,
@@ -517,7 +518,7 @@ class IssueService:
         require_project_access(self.db, user, issue.project_id)
         if not can_edit_issue(self.db, user, issue) and issue.assignee_id != user.id:
             raise HTTPException(status_code=403, detail="Cannot log time on this issue")
-        if data.date_worked > date.today():
+        if data.date_worked > today_pkt():
             raise HTTPException(status_code=422, detail="Cannot log time for future dates")
         wl = Worklog(
             issue_id=issue.id,
