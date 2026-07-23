@@ -32,6 +32,17 @@ class StandupRepository:
             .all()
         )
 
+    def get_previous_before(self, project_id: int, before_date: date) -> Optional[Standup]:
+        """Most recent standup strictly before `before_date` — skips weekends
+        and any missed days rather than assuming exactly one calendar day
+        back."""
+        return (
+            self.db.query(Standup)
+            .filter(Standup.project_id == project_id, Standup.date < before_date)
+            .order_by(Standup.date.desc())
+            .first()
+        )
+
     def create(self, standup: Standup) -> Standup:
         self.db.add(standup)
         self.db.flush()

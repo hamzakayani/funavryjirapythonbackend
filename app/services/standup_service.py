@@ -182,9 +182,10 @@ class StandupService:
         if not standup:
             standup = Standup(project_id=project.id, date=today, created_by=user.id)
             self.standups.create(standup)
+            previous_standup = self.standups.get_previous_before(project.id, today)
             for member in self.members.list_for_project(project.id):
                 leave = self.leaves.get_active_for_user_on_date(member.user_id, today)
-                self.entries.create(
+                entry = self.entries.create(
                     StandupEntry(
                         standup_id=standup.id,
                         user_id=member.user_id,
@@ -193,9 +194,34 @@ class StandupService:
                         ),
                     )
                 )
+                if previous_standup:
+                    self._carry_forward_tasks(previous_standup.id, member.user_id, entry.id)
             self.standups.save()
             self.standups.refresh(standup)
         return self._standup_to_out(standup, project.key)
+
+    def _carry_forward_tasks(
+        self, previous_standup_id: int, member_user_id: int, new_entry_id: int
+    ) -> None:
+        """Seed today's Yesterday list from what was assigned to this member
+        in the prior standup — still just a starting point: the member can
+        remove any of these and add others via the existing
+        link_completed_task/remove_task endpoints."""
+        previous_entry = self.entries.get(previous_standup_id, member_user_id)
+        if not previous_entry:
+            return
+        previous_assigned = self.assigned_tasks.list_for_entry(
+            previous_entry.id, kind=StandupTaskKind.Assigned
+        )
+        for task in previous_assigned:
+            if not self.assigned_tasks.exists(new_entry_id, task.issue_id, StandupTaskKind.Completed):
+                self.assigned_tasks.create(
+                    StandupAssignedTask(
+                        standup_entry_id=new_entry_id,
+                        issue_id=task.issue_id,
+                        kind=StandupTaskKind.Completed,
+                    )
+                )
 
     def get_standup(self, standup_id: int, user: User) -> StandupOut:
         standup = self._get_standup(standup_id)

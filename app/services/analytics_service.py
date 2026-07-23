@@ -90,10 +90,10 @@ class AnalyticsService:
             active_sprint_count=self.analytics.active_sprint_count(project.id),
             total_users=len(member_users),
             active_users=sum(1 for u in member_users if u.status == UserStatus.Active),
-            total_hours_logged=round(hours_total / 60, 2),
+            total_hours_logged=round(hours_total / 60, 1),
             hours_logged_series=[HoursPoint(date=p["date"], minutes=p["minutes"]) for p in hours_series],
-            total_original_estimate_hours=round(estimates["original_minutes"] / 60, 2),
-            total_remaining_estimate_hours=round(estimates["remaining_minutes"] / 60, 2),
+            total_original_estimate_hours=round(estimates["original_minutes"] / 60, 1),
+            total_remaining_estimate_hours=round(estimates["remaining_minutes"] / 60, 1),
             issues_created_in_range=self.analytics.issues_created_count(
                 project_id=project.id, start=range_start, end=range_end
             ),
@@ -148,10 +148,10 @@ class AnalyticsService:
             open_count=total_issues - done_count,
             status_breakdown=[StatusCount(status=s, count=c) for s, c in status_counts.items()],
             type_breakdown=[TypeCount(issue_type=t, count=c) for t, c in type_counts.items()],
-            total_hours_logged=round(hours_total / 60, 2),
+            total_hours_logged=round(hours_total / 60, 1),
             hours_logged_series=[HoursPoint(date=p["date"], minutes=p["minutes"]) for p in hours_series],
-            total_original_estimate_hours=round(estimates["original_minutes"] / 60, 2),
-            total_remaining_estimate_hours=round(estimates["remaining_minutes"] / 60, 2),
+            total_original_estimate_hours=round(estimates["original_minutes"] / 60, 1),
+            total_remaining_estimate_hours=round(estimates["remaining_minutes"] / 60, 1),
         )
 
     def sprint_issues_export(self, sprint_id: int, user: User) -> bytes:
@@ -231,7 +231,7 @@ class AnalyticsService:
                     daily=[
                         HoursPoint(date=d, minutes=minutes_by_date.get(d, 0)) for d in dates
                     ],
-                    total_hours=round(row["total_minutes"] / 60, 2),
+                    total_hours=round(row["total_minutes"] / 60, 1),
                 )
             )
         return DailyUserReportOut(

@@ -232,10 +232,10 @@ class AnalyticsRepository:
                     "user_id": uid,
                     "name": user.name,
                     "email": user.email,
-                    "hours_logged": round(hours_by_user.get(uid, 0) / 60, 2),
+                    "hours_logged": round(hours_by_user.get(uid, 0) / 60, 1),
                     "tickets_assigned_count": len(assigned),
                     "tickets_completed_count": len(completed),
-                    "estimate_hours": round(estimate_minutes / 60, 2),
+                    "estimate_hours": round(estimate_minutes / 60, 1),
                     "assigned_ticket_keys": [i.issue_key for i in assigned],
                     "completed_ticket_keys": [i.issue_key for i in completed],
                 }
