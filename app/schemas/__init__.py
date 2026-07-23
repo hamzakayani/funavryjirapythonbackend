@@ -50,6 +50,8 @@ from app.schemas.issue import (
 from app.schemas.notification import NotificationOut, UnreadCountOut
 from app.schemas.spectator import SpectatorViewOut, SpectatorViewRequest
 from app.schemas.analytics import (
+    DailyUserHours,
+    DailyUserReportOut,
     HoursPoint,
     ProjectStatsOut,
     SprintStatsOut,
@@ -123,6 +125,8 @@ __all__ = [
     "SprintStatsOut",
     "UserReportRow",
     "UserReportOut",
+    "DailyUserHours",
+    "DailyUserReportOut",
     "NotificationOut",
     "UnreadCountOut",
     "SpectatorViewRequest",

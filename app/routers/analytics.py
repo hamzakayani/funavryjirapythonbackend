@@ -8,7 +8,7 @@ from app.core.deps import get_current_user
 from app.database import get_db
 from app.models import User
 from app.repositories import SprintRepository
-from app.schemas import ProjectStatsOut, SprintStatsOut, UserReportOut
+from app.schemas import DailyUserReportOut, ProjectStatsOut, SprintStatsOut, UserReportOut
 from app.services import AnalyticsService
 
 router = APIRouter(tags=["analytics"])
@@ -103,3 +103,15 @@ def export_project_user_report(
     )
     filename = f"{project_key}-user-report-{date.today().isoformat()}.xlsx"
     return _attachment(content, filename)
+
+
+@router.get("/projects/{project_key}/analytics/users/daily", response_model=DailyUserReportOut)
+def project_daily_user_report(
+    project_key: str,
+    range: str = "weekly",
+    start_date: date | None = None,
+    end_date: date | None = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return AnalyticsService(db).project_daily_user_report(project_key, user, range, start_date, end_date)

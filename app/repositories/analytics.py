@@ -137,6 +137,48 @@ class AnalyticsRepository:
             .count()
         )
 
+    def daily_user_breakdown(
+        self, *, project_id: int, member_user_ids: list[int], start: date, end: date
+    ) -> list[dict]:
+        if not member_user_ids:
+            return []
+
+        users = self.db.query(User).filter(User.id.in_(member_user_ids)).all()
+        users_by_id = {u.id: u for u in users}
+
+        rows = (
+            self.db.query(Worklog.user_id, Worklog.date_worked, func.sum(Worklog.time_spent_minutes))
+            .join(Issue, Worklog.issue_id == Issue.id)
+            .filter(
+                Issue.project_id == project_id,
+                Worklog.user_id.in_(member_user_ids),
+                Worklog.date_worked >= start,
+                Worklog.date_worked <= end,
+            )
+            .group_by(Worklog.user_id, Worklog.date_worked)
+            .all()
+        )
+        minutes_by_user: dict[int, dict[date, int]] = {uid: {} for uid in member_user_ids}
+        for uid, d, mins in rows:
+            minutes_by_user.setdefault(uid, {})[d] = int(mins)
+
+        result = []
+        for uid in member_user_ids:
+            user = users_by_id.get(uid)
+            if user is None:
+                continue
+            by_date = minutes_by_user.get(uid, {})
+            result.append(
+                {
+                    "user_id": uid,
+                    "name": user.name,
+                    "email": user.email,
+                    "daily": [{"date": d, "minutes": m} for d, m in sorted(by_date.items())],
+                    "total_minutes": sum(by_date.values()),
+                }
+            )
+        return result
+
     def per_user_breakdown(
         self, *, project_id: int, member_user_ids: list[int], start: date, end: date
     ) -> list[dict]:

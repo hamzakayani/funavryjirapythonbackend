@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
@@ -19,6 +19,8 @@ from app.repositories import (
     UserRepository,
 )
 from app.schemas import (
+    DailyUserHours,
+    DailyUserReportOut,
     HoursPoint,
     ProjectStatsOut,
     SprintStatsOut,
@@ -194,3 +196,49 @@ class AnalyticsService:
     ) -> bytes:
         report = self.project_user_report(project_key, user, range_, start_date, end_date)
         return build_user_report_workbook(report)
+
+    def project_daily_user_report(
+        self,
+        project_key: str,
+        user: User,
+        range_: str,
+        start_date: date | None,
+        end_date: date | None,
+    ) -> DailyUserReportOut:
+        project = self.projects.get_by_key(project_key)
+        require_project_access(self.db, user, project.id)
+        if not can_manage_project(self.db, user, project.id):
+            raise HTTPException(status_code=403, detail="Lead access required")
+        range_start, range_end = resolve_range(range_, start_date, end_date)
+
+        dates = [
+            range_start + timedelta(days=i)
+            for i in range((range_end - range_start).days + 1)
+        ]
+
+        member_ids = [m.user_id for m in self.members.list_for_project(project.id)]
+        rows = self.analytics.daily_user_breakdown(
+            project_id=project.id, member_user_ids=member_ids, start=range_start, end=range_end
+        )
+        users = []
+        for row in rows:
+            minutes_by_date = {p["date"]: p["minutes"] for p in row["daily"]}
+            users.append(
+                DailyUserHours(
+                    user_id=row["user_id"],
+                    name=row["name"],
+                    email=row["email"],
+                    daily=[
+                        HoursPoint(date=d, minutes=minutes_by_date.get(d, 0)) for d in dates
+                    ],
+                    total_hours=round(row["total_minutes"] / 60, 2),
+                )
+            )
+        return DailyUserReportOut(
+            project_key=project.key,
+            range=range_,
+            range_start=range_start,
+            range_end=range_end,
+            dates=dates,
+            users=users,
+        )

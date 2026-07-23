@@ -76,3 +76,20 @@ class UserReportOut(BaseModel):
     range_start: date
     range_end: date
     users: List[UserReportRow]
+
+
+class DailyUserHours(BaseModel):
+    user_id: int
+    name: str
+    email: str
+    daily: List[HoursPoint]
+    total_hours: float
+
+
+class DailyUserReportOut(BaseModel):
+    project_key: str
+    range: str
+    range_start: date
+    range_end: date
+    dates: List[date]
+    users: List[DailyUserHours]
