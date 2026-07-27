@@ -63,18 +63,28 @@ def callback(code: str = Query(...), state: str = Query(...), db: Session = Depe
         pass  # non-fatal — calendar access itself doesn't require this
 
     if settings.enable_google_watch and settings.google_calendar_webhook_url:
+        import logging
         import uuid
         from app.services.google_calendar_client import GoogleCalendarClient
 
-        channel_id = str(uuid.uuid4())
-        client = GoogleCalendarClient(account, db)
-        watch_response = client.watch_events(channel_id, settings.google_calendar_webhook_url)
-        account.channel_id = channel_id
-        account.resource_id = watch_response.get("resourceId")
-        expiration_ms = watch_response.get("expiration")
-        if expiration_ms:
-            from datetime import datetime
-            account.channel_expiration = datetime.utcfromtimestamp(int(expiration_ms) / 1000)
+        try:
+            channel_id = str(uuid.uuid4())
+            client = GoogleCalendarClient(account, db)
+            watch_response = client.watch_events(channel_id, settings.google_calendar_webhook_url)
+            account.channel_id = channel_id
+            account.resource_id = watch_response.get("resourceId")
+            expiration_ms = watch_response.get("expiration")
+            if expiration_ms:
+                from datetime import datetime
+                account.channel_expiration = datetime.utcfromtimestamp(int(expiration_ms) / 1000)
+        except Exception:
+            # Best-effort: watch registration is a latency optimization on top
+            # of the 5-minute poller, never a requirement for the connection
+            # itself (e.g. it fails if the webhook domain isn't verified with
+            # Google). The account must still get saved below regardless.
+            logging.getLogger(__name__).exception(
+                "Google watch channel registration failed for user_id=%s", user_id
+            )
 
     repo.save()
 
