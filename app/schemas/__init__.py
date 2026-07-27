@@ -68,6 +68,7 @@ from app.schemas.meeting import (
     MeetingOut,
     MeetingUpdateRequest,
 )
+from app.schemas.google_account import GoogleAccountStatusOut, GoogleAuthorizationUrlOut
 from app.schemas.standup import (
     AssignTaskRequest,
     AttendanceReportOut,
@@ -160,4 +161,6 @@ __all__ = [
     "MeetingCreateRequest",
     "MeetingUpdateRequest",
     "MeetingOut",
+    "GoogleAccountStatusOut",
+    "GoogleAuthorizationUrlOut",
 ]
