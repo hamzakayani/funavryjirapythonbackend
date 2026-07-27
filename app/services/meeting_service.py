@@ -1,11 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 from dateutil.rrule import rrulestr
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
-from app.models import Meeting, MeetingAttendee, MeetingStatus, User
+from app.models import Meeting, MeetingAttendee, User
 from app.repositories import MeetingAttendeeRepository, MeetingRepository, UserRepository
 from app.schemas import AttendeeOut, MeetingCreateRequest, MeetingOut, MeetingUpdateRequest
 
@@ -139,6 +139,9 @@ class MeetingService:
                 meeting.meet_link = updates.get("manual_meet_link") or data.manual_meet_link
             elif updates["meet_link_type"] == "none":
                 meeting.meet_link = None
+
+        if meeting.meet_link_type == "manual" and "manual_meet_link" in updates and "meet_link_type" not in updates:
+            meeting.meet_link = updates["manual_meet_link"]
 
         if meeting.end_at <= meeting.start_at:
             raise HTTPException(status_code=422, detail="end_at must be after start_at")
