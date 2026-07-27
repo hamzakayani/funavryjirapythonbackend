@@ -17,6 +17,7 @@ from app.repositories.standup import (
     StandupLeaveRepository,
     StandupRepository,
 )
+from app.repositories.meeting import MeetingAttendeeRepository, MeetingRepository
 
 __all__ = [
     "UserRepository",
@@ -36,4 +37,6 @@ __all__ = [
     "StandupEntryRepository",
     "StandupAssignedTaskRepository",
     "StandupLeaveRepository",
+    "MeetingRepository",
+    "MeetingAttendeeRepository",
 ]
