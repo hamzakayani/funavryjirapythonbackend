@@ -10,6 +10,7 @@ from app.services.spectator_service import SpectatorService
 from app.services.standup_service import StandupService
 from app.services.meeting_service import MeetingService
 from app.services.google_oauth_service import GoogleOAuthService
+from app.services.google_sync_service import GoogleSyncService
 
 __all__ = [
     "AuthService",
@@ -24,4 +25,5 @@ __all__ = [
     "StandupService",
     "MeetingService",
     "GoogleOAuthService",
+    "GoogleSyncService",
 ]
