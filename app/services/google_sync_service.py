@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from dateutil import parser as date_parser
@@ -22,6 +22,8 @@ class GoogleSyncService:
         if not raw:
             return None
         parsed = date_parser.isoparse(raw)
+        if parsed.tzinfo is not None:
+            parsed = parsed.astimezone(timezone.utc)
         return parsed.replace(tzinfo=None)  # store naive UTC-equivalent, matching existing convention
 
     def _upsert_event(self, account: GoogleAccount, event: dict) -> None:
