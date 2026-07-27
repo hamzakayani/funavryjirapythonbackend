@@ -6,8 +6,9 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.models import Meeting, MeetingAttendee, User
-from app.repositories import MeetingAttendeeRepository, MeetingRepository, UserRepository
+from app.repositories import GoogleAccountRepository, MeetingAttendeeRepository, MeetingRepository, UserRepository
 from app.schemas import AttendeeOut, MeetingCreateRequest, MeetingOut, MeetingUpdateRequest
+from app.services.google_calendar_client import GoogleCalendarClient
 
 MAX_RECURRENCE_EXPANSION = 500  # hard cap on generated occurrences per meeting per query
 
@@ -18,6 +19,7 @@ class MeetingService:
         self.meetings = MeetingRepository(db)
         self.attendees = MeetingAttendeeRepository(db)
         self.users = UserRepository(db)
+        self.google_accounts = GoogleAccountRepository(db)
 
     # -- conversion ------------------------------------------------------
 
@@ -83,6 +85,26 @@ class MeetingService:
                 resolved.setdefault(a.email, {"user_id": None, "email": a.email})
         return list(resolved.values())
 
+    # -- google sync -----------------------------------------------------
+
+    def _push_to_google_if_connected(self, meeting: Meeting, is_new: bool) -> None:
+        account = self.google_accounts.get_by_user_id(meeting.owner_id)
+        if not account or not account.is_connected:
+            return
+        client = GoogleCalendarClient(account, self.db)
+        if is_new:
+            event = client.insert_event(meeting)
+        else:
+            event = client.update_event(meeting)
+        meeting.google_event_id = event.get("id")
+        meeting.google_calendar_id = account.calendar_id
+        meeting.google_etag = event.get("etag")
+        meeting.google_html_link = event.get("htmlLink")
+        if meeting.meet_link_type == "google_meet":
+            meeting.meet_link = event.get("hangoutLink")
+        meeting.last_synced_at = datetime.utcnow()
+        self.meetings.save()
+
     # -- CRUD ----------------------------------------------------------------
 
     def create_meeting(self, data: MeetingCreateRequest, user: User) -> Meeting:
@@ -119,6 +141,9 @@ class MeetingService:
             self.attendees.create(MeetingAttendee(meeting_id=meeting.id, **a))
 
         self.meetings.save()
+        self.meetings.refresh(meeting)
+
+        self._push_to_google_if_connected(meeting, is_new=True)
         self.meetings.refresh(meeting)
         return meeting
 
@@ -158,10 +183,20 @@ class MeetingService:
 
         self.meetings.save()
         self.meetings.refresh(meeting)
+
+        if meeting.google_event_id:
+            self._push_to_google_if_connected(meeting, is_new=False)
+            self.meetings.refresh(meeting)
         return meeting
 
     def delete_meeting(self, meeting_id: int, user: User) -> Meeting:
         meeting = self._get_owned_meeting(meeting_id, user)
+
+        if meeting.google_event_id:
+            account = self.google_accounts.get_by_user_id(meeting.owner_id)
+            if account and account.is_connected:
+                GoogleCalendarClient(account, self.db).delete_event(meeting)
+
         self.meetings.delete(meeting)
         self.meetings.save()
         return meeting
