@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from app.services.google_sync_service import GoogleSyncService
 
 router = APIRouter(prefix="/google", tags=["google-calendar"])
 oauth_service = GoogleOAuthService()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/connect", response_model=GoogleAuthorizationUrlOut)
@@ -34,61 +37,71 @@ def callback(code: str = Query(...), state: str = Query(...), db: Session = Depe
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid or expired state")
 
-    creds = oauth_service.exchange_code(code)
-
-    repo = GoogleAccountRepository(db)
-    account = repo.get_by_user_id(user_id)
-    if not account:
-        account = GoogleAccount(
-            user_id=user_id,
-            google_email="",
-            access_token="",
-            refresh_token="",
-            token_expiry=creds.expiry,
-            scope=" ".join(creds.scopes or []),
-        )
-        repo.create(account)
-
-    oauth_service.persist_credentials(account, creds)
-    account.is_connected = True
-
-    # Fetch the connected Google account's email for display purposes.
-    from googleapiclient.discovery import build
+    frontend_base = settings.frontend_url.rstrip("/")
 
     try:
-        oauth2_service = build("oauth2", "v2", credentials=creds)
-        info = oauth2_service.userinfo().get().execute()
-        account.google_email = info.get("email", "")
-    except Exception:
-        pass  # non-fatal — calendar access itself doesn't require this
+        creds = oauth_service.exchange_code(code)
 
-    if settings.enable_google_watch and settings.google_calendar_webhook_url:
-        import logging
-        import uuid
-        from app.services.google_calendar_client import GoogleCalendarClient
+        repo = GoogleAccountRepository(db)
+        account = repo.get_by_user_id(user_id)
+        if not account:
+            account = GoogleAccount(
+                user_id=user_id,
+                google_email="",
+                access_token="",
+                refresh_token="",
+                token_expiry=creds.expiry,
+                scope=" ".join(creds.scopes or []),
+            )
+            repo.create(account)
+
+        oauth_service.persist_credentials(account, creds)
+        account.is_connected = True
+
+        # Fetch the connected Google account's email for display purposes.
+        from googleapiclient.discovery import build
 
         try:
-            channel_id = str(uuid.uuid4())
-            client = GoogleCalendarClient(account, db)
-            watch_response = client.watch_events(channel_id, settings.google_calendar_webhook_url)
-            account.channel_id = channel_id
-            account.resource_id = watch_response.get("resourceId")
-            expiration_ms = watch_response.get("expiration")
-            if expiration_ms:
-                from datetime import datetime
-                account.channel_expiration = datetime.utcfromtimestamp(int(expiration_ms) / 1000)
+            oauth2_service = build("oauth2", "v2", credentials=creds)
+            info = oauth2_service.userinfo().get().execute()
+            account.google_email = info.get("email", "")
         except Exception:
-            # Best-effort: watch registration is a latency optimization on top
-            # of the 5-minute poller, never a requirement for the connection
-            # itself (e.g. it fails if the webhook domain isn't verified with
-            # Google). The account must still get saved below regardless.
-            logging.getLogger(__name__).exception(
-                "Google watch channel registration failed for user_id=%s", user_id
-            )
+            pass  # non-fatal — calendar access itself doesn't require this
 
-    repo.save()
+        if settings.enable_google_watch and settings.google_calendar_webhook_url:
+            import uuid
+            from app.services.google_calendar_client import GoogleCalendarClient
 
-    frontend_base = settings.frontend_url.rstrip("/")
+            try:
+                channel_id = str(uuid.uuid4())
+                client = GoogleCalendarClient(account, db)
+                watch_response = client.watch_events(channel_id, settings.google_calendar_webhook_url)
+                account.channel_id = channel_id
+                account.resource_id = watch_response.get("resourceId")
+                expiration_ms = watch_response.get("expiration")
+                if expiration_ms:
+                    from datetime import datetime
+                    account.channel_expiration = datetime.utcfromtimestamp(int(expiration_ms) / 1000)
+            except Exception:
+                # Best-effort: watch registration is a latency optimization on
+                # top of the 5-minute poller, never a requirement for the
+                # connection itself (e.g. it fails if the webhook domain
+                # isn't verified with Google). The account must still get
+                # saved below regardless.
+                logger.exception(
+                    "Google watch channel registration failed for user_id=%s", user_id
+                )
+
+        repo.save()
+    except Exception:
+        # Anything else here (invalid/expired/reused code, redirect_uri
+        # mismatch, transient Google API error, DB error) must never crash
+        # as a bare 500 — log the full traceback server-side for diagnosis,
+        # and send the user back to a page that can actually tell them it
+        # failed instead of a blank "Internal Server Error".
+        logger.exception("Google OAuth callback failed for user_id=%s", user_id)
+        return RedirectResponse(url=f"{frontend_base}/profile?error=1")
+
     return RedirectResponse(url=f"{frontend_base}/profile?connected=1")
 
 
