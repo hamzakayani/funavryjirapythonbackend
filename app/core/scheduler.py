@@ -29,6 +29,37 @@ def poll_all_google_accounts_job() -> None:
         db.close()
 
 
+def renew_expiring_watch_channels_job() -> None:
+    from datetime import datetime, timedelta
+    import uuid
+
+    from app.services.google_calendar_client import GoogleCalendarClient
+
+    db = SessionLocal()
+    try:
+        repo = GoogleAccountRepository(db)
+        soon = datetime.utcnow() + timedelta(hours=24)
+        for account in repo.list_connected():
+            if not account.channel_expiration or account.channel_expiration > soon:
+                continue
+            try:
+                client = GoogleCalendarClient(account, db)
+                if account.channel_id and account.resource_id:
+                    client.stop_channel(account.channel_id, account.resource_id)
+                new_channel_id = str(uuid.uuid4())
+                watch_response = client.watch_events(new_channel_id, settings.google_calendar_webhook_url)
+                account.channel_id = new_channel_id
+                account.resource_id = watch_response.get("resourceId")
+                expiration_ms = watch_response.get("expiration")
+                if expiration_ms:
+                    account.channel_expiration = datetime.utcfromtimestamp(int(expiration_ms) / 1000)
+                repo.save()
+            except Exception:
+                logger.exception("Watch channel renewal failed for user_id=%s", account.user_id)
+    finally:
+        db.close()
+
+
 def start_scheduler() -> None:
     scheduler.add_job(
         poll_all_google_accounts_job,
@@ -39,6 +70,16 @@ def start_scheduler() -> None:
         coalesce=True,
         replace_existing=True,
     )
+    if settings.enable_google_watch:
+        scheduler.add_job(
+            renew_expiring_watch_channels_job,
+            "interval",
+            hours=1,
+            id="google_watch_renew",
+            max_instances=1,
+            coalesce=True,
+            replace_existing=True,
+        )
     scheduler.start()
 
 
