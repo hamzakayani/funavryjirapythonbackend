@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,7 @@ from app.models import GoogleAccount, User
 from app.repositories import GoogleAccountRepository
 from app.schemas import GoogleAccountStatusOut, GoogleAuthorizationUrlOut
 from app.services.google_oauth_service import GoogleOAuthService
+from app.services.google_sync_service import GoogleSyncService
 
 router = APIRouter(prefix="/google", tags=["google-calendar"])
 oauth_service = GoogleOAuthService()
@@ -88,3 +89,34 @@ def status(user: User = Depends(get_current_user), db: Session = Depends(get_db)
         calendar_id=account.calendar_id,
         last_synced_at=account.last_synced_at,
     )
+
+
+@router.post("/sync-now")
+def sync_now(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    account = GoogleAccountRepository(db).get_by_user_id(user.id)
+    if not account or not account.is_connected:
+        raise HTTPException(status_code=400, detail="Google account not connected")
+    count = GoogleSyncService(db).pull_sync_for_account(account)
+    return {"synced_events": count}
+
+
+@router.post("/webhook")
+def webhook(
+    x_goog_channel_id: str | None = Header(default=None),
+    x_goog_resource_state: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """Google calls this with no body and no auth — only headers identifying
+    the channel. Payload never contains event data, only a 'something
+    changed' signal; we look up the matching account by channel_id and run
+    the same incremental pull the poller uses."""
+    if not x_goog_channel_id or x_goog_resource_state == "sync":
+        return {"ok": True}  # initial sync handshake, no action needed
+    account = (
+        db.query(GoogleAccount)
+        .filter(GoogleAccount.channel_id == x_goog_channel_id, GoogleAccount.is_connected.is_(True))
+        .first()
+    )
+    if account:
+        GoogleSyncService(db).pull_sync_for_account(account)
+    return {"ok": True}

@@ -44,6 +44,14 @@ def startup():
         seed_demo_data(db)
     finally:
         db.close()
+    from app.core.scheduler import start_scheduler
+    start_scheduler()
+
+
+@app.on_event("shutdown")
+def shutdown():
+    from app.core.scheduler import shutdown_scheduler
+    shutdown_scheduler()
 
 
 @app.get("/api/v1/health")
