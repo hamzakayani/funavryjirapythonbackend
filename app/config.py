@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     enable_google_watch: bool = False
     token_encryption_key: str = ""
     google_sync_poll_interval_minutes: int = 5
+    # In a multi-worker deployment (e.g. gunicorn -w N) this MUST be true on
+    # exactly ONE worker/process, otherwise every worker runs its own poller.
+    scheduler_enabled: bool = True
 
     class Config:
         env_file = ".env"

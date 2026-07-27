@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 from typing import Optional
 
@@ -9,6 +10,8 @@ from app.models import Meeting, MeetingAttendee, User
 from app.repositories import GoogleAccountRepository, MeetingAttendeeRepository, MeetingRepository, UserRepository
 from app.schemas import AttendeeOut, MeetingCreateRequest, MeetingOut, MeetingUpdateRequest
 from app.services.google_calendar_client import GoogleCalendarClient
+
+logger = logging.getLogger(__name__)
 
 MAX_RECURRENCE_EXPANSION = 500  # hard cap on generated occurrences per meeting per query
 
@@ -91,19 +94,31 @@ class MeetingService:
         account = self.google_accounts.get_by_user_id(meeting.owner_id)
         if not account or not account.is_connected:
             return
-        client = GoogleCalendarClient(account, self.db)
-        if is_new:
-            event = client.insert_event(meeting)
-        else:
-            event = client.update_event(meeting)
-        meeting.google_event_id = event.get("id")
-        meeting.google_calendar_id = account.calendar_id
-        meeting.google_etag = event.get("etag")
-        meeting.google_html_link = event.get("htmlLink")
-        if meeting.meet_link_type == "google_meet":
-            meeting.meet_link = event.get("hangoutLink")
-        meeting.last_synced_at = datetime.utcnow()
-        self.meetings.save()
+        # Google push is best-effort: the local meeting is already committed.
+        # Any Google API/network failure is logged and swallowed so it never
+        # surfaces as a 500 implying the local operation itself failed. Sync
+        # fields are only mutated after the API call succeeds, so a failed
+        # push leaves the meeting committed with its prior sync fields intact.
+        try:
+            client = GoogleCalendarClient(account, self.db)
+            if is_new:
+                event = client.insert_event(meeting)
+            else:
+                event = client.update_event(meeting)
+            meeting.google_event_id = event.get("id")
+            meeting.google_calendar_id = account.calendar_id
+            meeting.google_etag = event.get("etag")
+            meeting.google_html_link = event.get("htmlLink")
+            if meeting.meet_link_type == "google_meet":
+                meeting.meet_link = event.get("hangoutLink")
+            meeting.last_synced_at = datetime.utcnow()
+            self.meetings.save()
+        except Exception:
+            logger.exception(
+                "Google push failed for meeting_id=%s owner_id=%s (local write kept)",
+                meeting.id,
+                meeting.owner_id,
+            )
 
     # -- CRUD ----------------------------------------------------------------
 
@@ -195,7 +210,17 @@ class MeetingService:
         if meeting.google_event_id:
             account = self.google_accounts.get_by_user_id(meeting.owner_id)
             if account and account.is_connected:
-                GoogleCalendarClient(account, self.db).delete_event(meeting)
+                # Best-effort Google delete: a Google-side failure is logged but
+                # must never block the local delete below (consistent with the
+                # create/update push philosophy — local operation always wins).
+                try:
+                    GoogleCalendarClient(account, self.db).delete_event(meeting)
+                except Exception:
+                    logger.exception(
+                        "Google delete failed for meeting_id=%s owner_id=%s (local delete proceeds)",
+                        meeting.id,
+                        meeting.owner_id,
+                    )
 
         self.meetings.delete(meeting)
         self.meetings.save()

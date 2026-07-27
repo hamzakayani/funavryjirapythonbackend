@@ -34,8 +34,13 @@ class GoogleCalendarClient:
             "summary": meeting.title,
             "description": meeting.description or "",
             "location": meeting.location or "",
-            "start": {"dateTime": meeting.start_at.isoformat(), "timeZone": meeting.timezone},
-            "end": {"dateTime": meeting.end_at.isoformat(), "timeZone": meeting.timezone},
+            # start_at/end_at are stored as naive TRUE-UTC by this backend's
+            # convention, so we always label the outgoing payload as UTC. We do
+            # NOT use meeting.timezone here (it is a display-preference field
+            # only); doing so would make Google reinterpret the UTC wall-clock
+            # value as local time and shift pulled-then-edited events.
+            "start": {"dateTime": meeting.start_at.isoformat(), "timeZone": "UTC"},
+            "end": {"dateTime": meeting.end_at.isoformat(), "timeZone": "UTC"},
             "attendees": [{"email": a.email} for a in meeting.attendees],
         }
         if meeting.rrule:

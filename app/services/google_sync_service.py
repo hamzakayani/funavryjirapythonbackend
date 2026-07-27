@@ -42,6 +42,14 @@ class GoogleSyncService:
         meeting = self.meetings.get_by_google_event_id(account.user_id, google_event_id)
         is_new = meeting is None
         if is_new:
+            # If this same Google event is already represented locally as a
+            # meeting owned by someone else with this account's user listed as
+            # an attendee, the user already sees it via that owner's meeting +
+            # their attendee row. Creating our own pulled copy here would show
+            # the event twice, so skip it. This ONLY gates the create-new-row
+            # path — an existing pulled copy (is_new False) is left untouched.
+            if self.meetings.exists_as_attendee_elsewhere(account.user_id, google_event_id):
+                return
             meeting = Meeting(
                 owner_id=account.user_id,
                 source=MeetingSource.Google,

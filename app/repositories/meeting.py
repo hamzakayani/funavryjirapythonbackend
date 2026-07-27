@@ -21,6 +21,23 @@ class MeetingRepository:
             .first()
         )
 
+    def exists_as_attendee_elsewhere(self, user_id: int, google_event_id: str) -> bool:
+        """True if google_event_id is already represented as a Meeting owned by
+        someone other than user_id, with user_id listed as an attendee on it —
+        used to avoid pull-sync creating a duplicate copy for an invited
+        attendee who is separately polling their own Google Calendar."""
+        return (
+            self.db.query(Meeting)
+            .join(MeetingAttendee, MeetingAttendee.meeting_id == Meeting.id)
+            .filter(
+                Meeting.google_event_id == google_event_id,
+                Meeting.owner_id != user_id,
+                MeetingAttendee.user_id == user_id,
+            )
+            .first()
+            is not None
+        )
+
     def list_for_user_in_range(self, user_id: int, start: datetime, end: datetime) -> list[Meeting]:
         """Meetings the user owns or is an invited attendee on, whose
         non-recurring window overlaps [start, end]. Recurring meetings

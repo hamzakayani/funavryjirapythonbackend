@@ -44,8 +44,16 @@ def startup():
         seed_demo_data(db)
     finally:
         db.close()
-    from app.core.scheduler import start_scheduler
-    start_scheduler()
+    # Only start the APScheduler poller when this process is designated as the
+    # scheduler owner. Under a multi-worker deployment (e.g. gunicorn -w N) every
+    # worker runs this startup handler, so SCHEDULER_ENABLED must be set to true
+    # on exactly ONE worker/process (via a per-process env override, or by running
+    # the scheduler in a separate single-instance process/cron) — otherwise N
+    # workers each poll every account, causing duplicate pull-sync and watch-channel
+    # races. This flag makes that controllable; operators must ensure only one is on.
+    if settings.scheduler_enabled:
+        from app.core.scheduler import start_scheduler
+        start_scheduler()
 
 
 @app.on_event("shutdown")
