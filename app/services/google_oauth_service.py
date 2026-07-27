@@ -24,7 +24,16 @@ def _client_config() -> dict:
 
 class GoogleOAuthService:
     def get_authorization_url(self, state: str) -> str:
-        flow = Flow.from_client_config(_client_config(), scopes=SCOPES, state=state)
+        # PKCE is disabled: this is a confidential client (holds a
+        # client_secret), so PKCE isn't required, and the code_verifier
+        # google-auth-oauthlib would otherwise auto-generate here lives only
+        # on this in-memory Flow instance — it can't survive to the /callback
+        # request, which builds an entirely separate Flow. Without this flag
+        # Google rejects the token exchange with "invalid_grant: Missing
+        # code verifier".
+        flow = Flow.from_client_config(
+            _client_config(), scopes=SCOPES, state=state, autogenerate_code_verifier=False
+        )
         flow.redirect_uri = settings.google_redirect_uri
         url, _ = flow.authorization_url(
             access_type="offline", include_granted_scopes="true", prompt="consent"
