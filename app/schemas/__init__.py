@@ -1,3 +1,4 @@
+from app.schemas.user_directory import UserListItem
 from app.schemas.auth import (
     AuthResponse,
     LoginRequest,
@@ -79,6 +80,7 @@ from app.schemas.standup import (
 )
 
 __all__ = [
+    "UserListItem",
     "RegisterRequest",
     "LoginRequest",
     "UpdateProfileRequest",
