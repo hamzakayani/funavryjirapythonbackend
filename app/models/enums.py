@@ -52,6 +52,23 @@ class Priority(str, enum.Enum):
     Lowest = "Lowest"
 
 
+class MeetingSource(str, enum.Enum):
+    App = "App"
+    Google = "Google"
+
+
+class MeetingStatus(str, enum.Enum):
+    Confirmed = "Confirmed"
+    Cancelled = "Cancelled"
+
+
+class AttendeeResponseStatus(str, enum.Enum):
+    NeedsAction = "NeedsAction"
+    Accepted = "Accepted"
+    Declined = "Declined"
+    Tentative = "Tentative"
+
+
 # Default statuses seeded for every project's IssueStatusDef list.
 # Issue.status is a free-form string referencing IssueStatusDef.name — no
 # longer a fixed enum, since projects can define their own custom statuses.
