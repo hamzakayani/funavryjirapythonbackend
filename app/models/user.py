@@ -25,3 +25,6 @@ class User(Base):
     project_memberships = relationship("ProjectMember", back_populates="user")
     reported_issues = relationship("Issue", foreign_keys="Issue.reporter_id", back_populates="reporter")
     assigned_issues = relationship("Issue", foreign_keys="Issue.assignee_id", back_populates="assignee")
+    google_account = relationship(
+        "GoogleAccount", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )

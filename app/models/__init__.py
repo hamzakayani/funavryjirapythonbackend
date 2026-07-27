@@ -2,7 +2,10 @@ from app.models.enums import (
     DEFAULT_STATUSES,
     MEMBER_JOB_ROLES,
     AttendanceStatus,
+    AttendeeResponseStatus,
     IssueType,
+    MeetingSource,
+    MeetingStatus,
     Priority,
     ProjectRole,
     SprintStatus,
@@ -17,6 +20,8 @@ from app.models.issue import ActivityLog, Comment, Issue, IssueAttachment, Issue
 from app.models.notification import Notification
 from app.models.spectator import SpectatorAccess
 from app.models.standup import Standup, StandupAssignedTask, StandupEntry, StandupLeave
+from app.models.google_account import GoogleAccount
+from app.models.meeting import Meeting, MeetingAttendee
 
 __all__ = [
     "UserStatus",
@@ -29,6 +34,9 @@ __all__ = [
     "StandupStatus",
     "StandupTaskKind",
     "AttendanceStatus",
+    "AttendeeResponseStatus",
+    "MeetingSource",
+    "MeetingStatus",
     "User",
     "Project",
     "ProjectMember",
@@ -46,4 +54,7 @@ __all__ = [
     "StandupEntry",
     "StandupAssignedTask",
     "StandupLeave",
+    "GoogleAccount",
+    "Meeting",
+    "MeetingAttendee",
 ]
