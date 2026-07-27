@@ -3,6 +3,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.schemas.types import UTCDateTime
+
 
 class AttendeeIn(BaseModel):
     user_id: Optional[int] = None
@@ -72,8 +74,8 @@ class MeetingOut(BaseModel):
     title: str
     description: Optional[str] = None
     location: Optional[str] = None
-    start_at: datetime
-    end_at: datetime
+    start_at: UTCDateTime
+    end_at: UTCDateTime
     all_day: bool
     timezone: str
     rrule: Optional[str] = None
