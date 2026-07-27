@@ -10,6 +10,14 @@ class Settings(BaseSettings):
     frontend_url: str = "https://funavryjirafrontend.vercel.app"
     upload_dir: str = "uploads"
 
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = "http://localhost:8000/api/v1/google/callback"
+    google_calendar_webhook_url: str = ""
+    enable_google_watch: bool = False
+    token_encryption_key: str = ""
+    google_sync_poll_interval_minutes: int = 5
+
     class Config:
         env_file = ".env"
 
