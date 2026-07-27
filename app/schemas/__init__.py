@@ -61,6 +61,13 @@ from app.schemas.analytics import (
     UserReportOut,
     UserReportRow,
 )
+from app.schemas.meeting import (
+    AttendeeIn,
+    AttendeeOut,
+    MeetingCreateRequest,
+    MeetingOut,
+    MeetingUpdateRequest,
+)
 from app.schemas.standup import (
     AssignTaskRequest,
     AttendanceReportOut,
@@ -148,4 +155,9 @@ __all__ = [
     "ProjectLeaveOut",
     "AttendanceReportRow",
     "AttendanceReportOut",
+    "AttendeeIn",
+    "AttendeeOut",
+    "MeetingCreateRequest",
+    "MeetingUpdateRequest",
+    "MeetingOut",
 ]
