@@ -104,5 +104,14 @@ class NotificationService:
                 issue_id=issue.id,
             )
 
+    def notify_chat_mention(self, project, actor: User, recipient_id: int) -> None:
+        self._notify(
+            recipient_id=recipient_id,
+            actor=actor,
+            type="chat_mention",
+            message=f"{actor.name} mentioned you in {project.key} chat",
+            project_id=project.id,
+        )
+
     def save(self) -> None:
         self.notifications.save()
