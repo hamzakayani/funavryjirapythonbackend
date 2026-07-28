@@ -49,6 +49,15 @@ from app.schemas.issue import (
     WorklogRequest,
 )
 from app.schemas.notification import NotificationOut, UnreadCountOut
+from app.schemas.chat import (
+    ChatAttachmentOut,
+    ChatMentionOut,
+    ChatMessageOut,
+    ChatProjectSummaryOut,
+    EditMessageRequest,
+    MentionIn,
+    SendMessageRequest,
+)
 from app.schemas.spectator import SpectatorViewOut, SpectatorViewRequest
 from app.schemas.analytics import (
     DailyUserHours,
@@ -163,4 +172,11 @@ __all__ = [
     "MeetingOut",
     "GoogleAccountStatusOut",
     "GoogleAuthorizationUrlOut",
+    "ChatAttachmentOut",
+    "ChatMentionOut",
+    "ChatMessageOut",
+    "ChatProjectSummaryOut",
+    "EditMessageRequest",
+    "MentionIn",
+    "SendMessageRequest",
 ]
