@@ -19,6 +19,7 @@ from app.repositories.standup import (
 )
 from app.repositories.meeting import MeetingAttendeeRepository, MeetingRepository
 from app.repositories.google_account import GoogleAccountRepository
+from app.repositories.chat import ChatRepository
 
 __all__ = [
     "UserRepository",
@@ -41,4 +42,5 @@ __all__ = [
     "MeetingRepository",
     "MeetingAttendeeRepository",
     "GoogleAccountRepository",
+    "ChatRepository",
 ]
