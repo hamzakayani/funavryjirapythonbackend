@@ -11,6 +11,7 @@ from app.services.standup_service import StandupService
 from app.services.meeting_service import MeetingService
 from app.services.google_oauth_service import GoogleOAuthService
 from app.services.google_sync_service import GoogleSyncService
+from app.services.chat_service import ChatService
 
 __all__ = [
     "AuthService",
@@ -26,4 +27,5 @@ __all__ = [
     "MeetingService",
     "GoogleOAuthService",
     "GoogleSyncService",
+    "ChatService",
 ]
