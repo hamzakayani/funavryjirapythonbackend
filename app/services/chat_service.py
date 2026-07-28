@@ -1,10 +1,13 @@
 from datetime import datetime
+from pathlib import Path
+from uuid import uuid4
 
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.core.deps import can_manage_project, require_project_access
-from app.models import ChatMessage, ChatMessageMention
+from app.models import ChatAttachment, ChatMessage, ChatMessageMention
 from app.repositories import ChatRepository, IssueRepository, ProjectMemberRepository, ProjectRepository
 from app.schemas import (
     ChatAttachmentOut,
@@ -17,6 +20,8 @@ from app.schemas import (
 from app.services.notification_service import NotificationService
 
 DELETED_PLACEHOLDER = "[message deleted]"
+MAX_CHAT_ATTACHMENT_BYTES = 10 * 1024 * 1024
+CHAT_ATTACHMENT_DIR = "chat-attachments"
 
 
 class ChatService:
@@ -158,8 +163,52 @@ class ChatService:
             raise HTTPException(status_code=404, detail="Message not found")
         return self._message_to_out(message, mask_deleted=False)
 
-    async def add_attachment(self, project_key: str, message_id: int, file, user) -> ChatAttachmentOut:
-        raise NotImplementedError("implemented in Task 9")
+    async def add_attachment(
+        self, project_key: str, message_id: int, file: UploadFile, user
+    ) -> ChatAttachmentOut:
+        project = self._get_project_by_key_or_404(project_key)
+        require_project_access(self.db, user, project.id)
+        message = self.chats.get_by_id(message_id, project.id)
+        if not message or message.is_deleted:
+            raise HTTPException(status_code=404, detail="Message not found")
+        if message.author_id != user.id:
+            raise HTTPException(
+                status_code=403, detail="Only the author can attach files to this message"
+            )
+
+        original_filename = Path(file.filename or "file").name
+        suffix = Path(original_filename).suffix
+        stored_filename = f"{uuid4().hex}{suffix}"
+        upload_dir = Path(settings.upload_dir) / CHAT_ATTACHMENT_DIR
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        destination = upload_dir / stored_filename
+
+        size = 0
+        try:
+            with destination.open("wb") as out_file:
+                while chunk := await file.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > MAX_CHAT_ATTACHMENT_BYTES:
+                        out_file.close()
+                        destination.unlink(missing_ok=True)
+                        raise HTTPException(
+                            status_code=413, detail="Attachment must be 10 MB or smaller"
+                        )
+                    out_file.write(chunk)
+        finally:
+            await file.close()
+
+        attachment = ChatAttachment(
+            message_id=message.id,
+            original_filename=original_filename,
+            stored_filename=stored_filename,
+            content_type=file.content_type or "application/octet-stream",
+            file_size=size,
+        )
+        self.db.add(attachment)
+        self.db.commit()
+        self.db.refresh(attachment)
+        return self._attachment_to_out(attachment)
 
     def list_projects_for_admin(self) -> list[ChatProjectSummaryOut]:
         return [
