@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from dateutil.rrule import rrulestr
@@ -229,6 +229,14 @@ class MeetingService:
     # -- listing with recurrence expansion ------------------------------------
 
     def list_meetings(self, user: User, start: datetime, end: datetime) -> list[MeetingOut]:
+        # meeting.start_at is stored as naive UTC; incoming query params may be
+        # timezone-aware (e.g. a "...Z" suffix), which dateutil's rrule.between
+        # cannot compare against a naive dtstart. Normalize to naive UTC here.
+        if start.tzinfo is not None:
+            start = start.astimezone(timezone.utc).replace(tzinfo=None)
+        if end.tzinfo is not None:
+            end = end.astimezone(timezone.utc).replace(tzinfo=None)
+
         raw_meetings = self.meetings.list_for_user_in_range(user.id, start, end)
         results: list[MeetingOut] = []
         for meeting in raw_meetings:
