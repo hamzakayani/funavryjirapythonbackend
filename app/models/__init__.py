@@ -22,6 +22,7 @@ from app.models.spectator import SpectatorAccess
 from app.models.standup import Standup, StandupAssignedTask, StandupEntry, StandupLeave
 from app.models.google_account import GoogleAccount
 from app.models.meeting import Meeting, MeetingAttendee
+from app.models.chat import ChatAttachment, ChatMessage, ChatMessageMention
 
 __all__ = [
     "UserStatus",
@@ -57,4 +58,7 @@ __all__ = [
     "GoogleAccount",
     "Meeting",
     "MeetingAttendee",
+    "ChatMessage",
+    "ChatMessageMention",
+    "ChatAttachment",
 ]
