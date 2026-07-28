@@ -158,6 +158,9 @@ class ChatService:
             raise HTTPException(status_code=404, detail="Message not found")
         return self._message_to_out(message, mask_deleted=False)
 
+    async def add_attachment(self, project_key: str, message_id: int, file, user) -> ChatAttachmentOut:
+        raise NotImplementedError("implemented in Task 9")
+
     def list_projects_for_admin(self) -> list[ChatProjectSummaryOut]:
         return [
             ChatProjectSummaryOut(

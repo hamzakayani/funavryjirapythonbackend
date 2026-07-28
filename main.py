@@ -6,7 +6,18 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import SessionLocal
-from app.routers import admin, analytics, auth, google_calendar, meetings, notifications, projects, standup, users
+from app.routers import (
+    admin,
+    analytics,
+    auth,
+    chat,
+    google_calendar,
+    meetings,
+    notifications,
+    projects,
+    standup,
+    users,
+)
 from app.services import seed_demo_data
 
 app = FastAPI(
@@ -32,6 +43,7 @@ app.include_router(standup.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(meetings.router, prefix="/api/v1")
 app.include_router(google_calendar.router, prefix="/api/v1")
+app.include_router(chat.router, prefix="/api/v1")
 
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
