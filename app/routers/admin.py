@@ -6,6 +6,8 @@ from app.database import get_db
 from app.models import User
 from app.schemas import (
     AddMemberRequest,
+    ChatMessageOut,
+    ChatProjectSummaryOut,
     CreateProjectRequest,
     ProjectMemberOut,
     ProjectOut,
@@ -13,7 +15,7 @@ from app.schemas import (
     UpdateProjectRequest,
     UserAdminOut,
 )
-from app.services import AdminService
+from app.services import AdminService, ChatService
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -113,3 +115,19 @@ def remove_member(
 @router.get("/active-users")
 def active_users(db: Session = Depends(get_db), _: User = Depends(require_super_admin)):
     return AdminService(db).active_users()
+
+
+@router.get("/chat/projects", response_model=list[ChatProjectSummaryOut])
+def admin_list_chat_projects(db: Session = Depends(get_db), _: User = Depends(require_super_admin)):
+    return ChatService(db).list_projects_for_admin()
+
+
+@router.get("/chat/projects/{project_id}/messages", response_model=list[ChatMessageOut])
+def admin_list_chat_messages(
+    project_id: int,
+    before_id: int | None = Query(None),
+    limit: int = Query(50, le=100),
+    db: Session = Depends(get_db),
+    _: User = Depends(require_super_admin),
+):
+    return ChatService(db).list_messages_for_admin(project_id, before_id=before_id, limit=limit)
