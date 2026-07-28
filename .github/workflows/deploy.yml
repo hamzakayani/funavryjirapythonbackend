@@ -42,8 +42,8 @@ jobs:
             #echo "Generating Alembic migration..."
             #alembic revision --autogenerate -m "auto migration"
 
-            #echo "Applying Alembic migrations..."
-            #alembic upgrade head
+            echo "Applying Alembic migrations..."
+            alembic upgrade head
 
             # Optional: Run db_seed script if it exists
             #if [ -f ./scripts/db_seed.py ]; then

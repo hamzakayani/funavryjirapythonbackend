@@ -1,3 +1,6 @@
+import pytest
+from starlette.websockets import WebSocketDisconnect
+
 from tests.conftest import add_member, auth_headers, make_project, make_user
 
 
@@ -102,9 +105,43 @@ def test_websocket_rejects_non_member(client, db_session):
 
     token = create_access_token(outsider.id)
 
-    try:
+    with pytest.raises(WebSocketDisconnect) as exc_info:
         with client.websocket_connect(f"/api/v1/ws/projects/RTR7/chat?token={token}"):
             pass
-        assert False, "expected the websocket connection to be rejected"
-    except Exception:
-        pass
+    assert exc_info.value.code == 4403
+
+
+def test_websocket_rejects_bad_token(client, db_session):
+    make_project(db_session, key="RTR8")
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect("/api/v1/ws/projects/RTR8/chat?token=not-a-real-token"):
+            pass
+    assert exc_info.value.code == 4401
+
+
+def test_websocket_rejects_inactive_user(client, db_session):
+    from app.core.security import create_access_token
+    from app.models import UserStatus
+
+    project = make_project(db_session, key="RTR9")
+    inactive = make_user(db_session, name="Inactive9", status=UserStatus.Suspended)
+    add_member(db_session, project, inactive)
+    token = create_access_token(inactive.id)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(f"/api/v1/ws/projects/RTR9/chat?token={token}"):
+            pass
+    assert exc_info.value.code == 4401
+
+
+def test_websocket_rejects_nonexistent_project(client, db_session):
+    from app.core.security import create_access_token
+
+    user = make_user(db_session, name="Ghost10")
+    token = create_access_token(user.id)
+
+    with pytest.raises(WebSocketDisconnect) as exc_info:
+        with client.websocket_connect(f"/api/v1/ws/projects/NOPE10/chat?token={token}"):
+            pass
+    assert exc_info.value.code == 4404

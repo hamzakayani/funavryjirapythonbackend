@@ -35,11 +35,20 @@ def db_session():
 
 
 @pytest.fixture()
-def client(db_session):
+def client(db_session, monkeypatch):
     def override_get_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_get_db
+
+    # The chat WebSocket endpoint opens its own short-lived session via
+    # `app.database.SessionLocal` (see app/routers/chat.py) instead of using
+    # the `get_db` dependency, so overriding `get_db` alone doesn't reach it.
+    # Point it at the same in-memory test engine so it sees test data.
+    import app.routers.chat as chat_router
+
+    monkeypatch.setattr(chat_router, "SessionLocal", TestingSessionLocal)
+
     yield TestClient(app)
     app.dependency_overrides.clear()
 

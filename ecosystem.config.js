@@ -4,8 +4,13 @@ module.exports = {
         name: "ft_jira",
         cwd: "/home/azureuser/FT/funavryjirapythonbackend",
         script: "gunicorn",
-  
-        args: "-w 8 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8005 --timeout 120 --max-requests 1000 --max-requests-jitter 100 --access-logfile -",
+
+        // Pinned to a single worker: the chat WebSocket connection manager
+        // (app/core/chat_ws.py) is in-process/in-memory only, so a message
+        // broadcast from one worker never reaches sockets connected to a
+        // different worker. Do NOT raise this without first adding a Redis
+        // pub/sub layer for chat broadcasts.
+        args: "-w 1 -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8005 --timeout 120 --max-requests 1000 --max-requests-jitter 100 --access-logfile - --access-logformat '%(h)s - - [%(t)s] \"%(m)s %(U)s %(H)s\" %(s)s %(b)s'",
   
         interpreter: "/home/azureuser/miniconda3/envs/ft-jira/bin/python",
   

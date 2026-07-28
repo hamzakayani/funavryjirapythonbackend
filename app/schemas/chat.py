@@ -50,6 +50,7 @@ class ChatMessageOut(BaseModel):
     attachments: list[ChatAttachmentOut] = []
     created_at: UTCDateTime
     updated_at: UTCDateTime
+    deleted_at: Optional[UTCDateTime] = None
 
     class Config:
         from_attributes = True

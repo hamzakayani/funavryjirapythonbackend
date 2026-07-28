@@ -60,17 +60,19 @@ class ChatService:
             type="issue", id=mention.mentioned_issue_id, label=mention.mentioned_issue.issue_key
         )
 
-    def _attachment_to_out(self, attachment) -> ChatAttachmentOut:
+    def _attachment_to_out(self, attachment, project_key: str) -> ChatAttachmentOut:
         return ChatAttachmentOut(
             id=attachment.id,
             original_filename=attachment.original_filename,
             content_type=attachment.content_type,
             file_size=attachment.file_size,
-            file_url=f"/jira/uploads/chat-attachments/{attachment.stored_filename}",
+            file_url=f"/api/v1/projects/{project_key}/chat/attachments/{attachment.id}/download",
             created_at=attachment.created_at,
         )
 
-    def _message_to_out(self, message: ChatMessage, *, mask_deleted: bool) -> ChatMessageOut:
+    def _message_to_out(
+        self, message: ChatMessage, *, mask_deleted: bool, project_key: str
+    ) -> ChatMessageOut:
         masked = mask_deleted and message.is_deleted
         return ChatMessageOut(
             id=message.id,
@@ -82,9 +84,14 @@ class ChatService:
             is_edited=message.is_edited,
             is_deleted=message.is_deleted,
             mentions=[] if masked else [self._mention_to_out(m) for m in message.mentions],
-            attachments=[] if masked else [self._attachment_to_out(a) for a in message.attachments],
+            attachments=(
+                []
+                if masked
+                else [self._attachment_to_out(a, project_key) for a in message.attachments]
+            ),
             created_at=message.created_at,
             updated_at=message.updated_at,
+            deleted_at=message.deleted_at,
         )
 
     def list_messages(
@@ -93,7 +100,7 @@ class ChatService:
         project = self._get_project_by_key_or_404(project_key)
         require_project_access(self.db, user, project.id)
         messages = self.chats.list_for_project(project.id, before_id=before_id, limit=limit)
-        return [self._message_to_out(m, mask_deleted=True) for m in messages]
+        return [self._message_to_out(m, mask_deleted=True, project_key=project.key) for m in messages]
 
     def create_message(
         self, project_key: str, user, text: str, mentions: list[MentionIn]
@@ -111,7 +118,7 @@ class ChatService:
 
         self.chats.save()
         self.chats.refresh(message)
-        return self._message_to_out(message, mask_deleted=False)
+        return self._message_to_out(message, mask_deleted=False, project_key=project.key)
 
     def edit_message(
         self, project_key: str, message_id: int, user, text: str, mentions: list[MentionIn]
@@ -137,7 +144,7 @@ class ChatService:
 
         self.chats.save()
         self.chats.refresh(message)
-        return self._message_to_out(message, mask_deleted=False)
+        return self._message_to_out(message, mask_deleted=False, project_key=project.key)
 
     def delete_message(self, project_key: str, message_id: int, user) -> ChatMessageOut:
         project = self._get_project_by_key_or_404(project_key)
@@ -154,14 +161,14 @@ class ChatService:
         message.deleted_at = datetime.utcnow()
         self.chats.save()
         self.chats.refresh(message)
-        return self._message_to_out(message, mask_deleted=True)
+        return self._message_to_out(message, mask_deleted=True, project_key=project.key)
 
     def get_message_out(self, project_key: str, message_id: int) -> ChatMessageOut:
         project = self._get_project_by_key_or_404(project_key)
         message = self.chats.get_by_id(message_id, project.id)
         if not message:
             raise HTTPException(status_code=404, detail="Message not found")
-        return self._message_to_out(message, mask_deleted=False)
+        return self._message_to_out(message, mask_deleted=False, project_key=project.key)
 
     async def add_attachment(
         self, project_key: str, message_id: int, file: UploadFile, user
@@ -208,7 +215,28 @@ class ChatService:
         self.db.add(attachment)
         self.db.commit()
         self.db.refresh(attachment)
-        return self._attachment_to_out(attachment)
+        return self._attachment_to_out(attachment, project.key)
+
+    def get_attachment_file(
+        self, project_key: str, attachment_id: int, user
+    ) -> tuple[Path, str, str]:
+        project = self._get_project_by_key_or_404(project_key)
+        require_project_access(self.db, user, project.id)
+
+        attachment = (
+            self.db.query(ChatAttachment)
+            .join(ChatMessage, ChatAttachment.message_id == ChatMessage.id)
+            .filter(ChatAttachment.id == attachment_id, ChatMessage.project_id == project.id)
+            .first()
+        )
+        if not attachment:
+            raise HTTPException(status_code=404, detail="Attachment not found")
+
+        path = Path(settings.upload_dir) / CHAT_ATTACHMENT_DIR / attachment.stored_filename
+        if not path.is_file():
+            raise HTTPException(status_code=404, detail="Attachment not found")
+
+        return path, attachment.original_filename, attachment.content_type
 
     def list_projects_for_admin(self) -> list[ChatProjectSummaryOut]:
         return [
@@ -228,4 +256,4 @@ class ChatService:
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
         messages = self.chats.list_for_project(project.id, before_id=before_id, limit=limit)
-        return [self._message_to_out(m, mask_deleted=False) for m in messages]
+        return [self._message_to_out(m, mask_deleted=False, project_key=project.key) for m in messages]

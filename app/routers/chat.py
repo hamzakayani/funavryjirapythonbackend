@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, File, Query, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse
 from jose import JWTError
 from sqlalchemy.orm import Session
 
 from app.core.chat_ws import manager
 from app.core.deps import get_current_user
 from app.core.security import decode_access_token
-from app.database import get_db
+from app.database import SessionLocal, get_db
 from app.models import User, UserStatus
 from app.repositories import ProjectMemberRepository, ProjectRepository, UserRepository
 from app.schemas import ChatAttachmentOut, ChatMessageOut, EditMessageRequest, SendMessageRequest
@@ -89,38 +90,65 @@ async def add_attachment(
     return attachment_out
 
 
+@router.get("/projects/{project_key}/chat/attachments/{attachment_id}/download")
+def download_chat_attachment(
+    project_key: str,
+    attachment_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    path, filename, content_type = ChatService(db).get_attachment_file(
+        project_key, attachment_id, user
+    )
+    return FileResponse(
+        path,
+        media_type=content_type,
+        filename=filename,
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
 @router.websocket("/ws/projects/{project_key}/chat")
 async def chat_websocket(
     websocket: WebSocket,
     project_key: str,
     token: str = Query(...),
-    db: Session = Depends(get_db),
 ):
+    # Use a short-lived session only for the auth/membership checks. The
+    # idle-listen loop below needs no DB access, and this connection may
+    # stay open for hours — holding a pooled session for that long would
+    # exhaust the connection pool after a handful of concurrent clients.
+    db = SessionLocal()
     try:
-        user_id = decode_access_token(token)
-    except (JWTError, ValueError, TypeError):
-        await websocket.close(code=4401)
-        return
+        try:
+            user_id = decode_access_token(token)
+        except (JWTError, ValueError, TypeError):
+            await websocket.close(code=4401)
+            return
 
-    user = UserRepository(db).get_by_id(user_id)
-    if not user or user.status != UserStatus.Active:
-        await websocket.close(code=4401)
-        return
+        user = UserRepository(db).get_by_id(user_id)
+        if not user or user.status != UserStatus.Active:
+            await websocket.close(code=4401)
+            return
 
-    project = ProjectRepository(db).get_by_key(project_key)
-    if not project:
-        await websocket.close(code=4404)
-        return
+        project = ProjectRepository(db).get_by_key(project_key)
+        if not project:
+            await websocket.close(code=4404)
+            return
 
-    if not user.is_super_admin and not ProjectMemberRepository(db).get(project.id, user.id):
-        await websocket.close(code=4403)
-        return
+        if not user.is_super_admin and not ProjectMemberRepository(db).get(project.id, user.id):
+            await websocket.close(code=4403)
+            return
 
-    await manager.connect(project.id, websocket)
+        project_id = project.id
+    finally:
+        db.close()
+
+    await manager.connect(project_id, websocket)
     try:
         while True:
             await websocket.receive_text()
     except WebSocketDisconnect:
         pass
     finally:
-        manager.disconnect(project.id, websocket)
+        manager.disconnect(project_id, websocket)

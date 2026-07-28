@@ -5,10 +5,13 @@ from typing import Any
 class ChatConnectionManager:
     """In-process WebSocket broadcaster, one connection set per project.
 
-    Only broadcasts to clients connected to THIS process. Correct as long as
-    the backend runs as a single process (true today: docker-compose runs one
-    backend container, no Redis/pub-sub layer exists). If the backend is ever
-    scaled to multiple workers, this needs a Redis pub/sub layer instead.
+    Only broadcasts to clients connected to THIS process. This means the
+    backend MUST run as a single process (`-w 1` in `ecosystem.config.js`)
+    for chat broadcasts to reach all connected clients — this is an ENFORCED
+    deployment requirement, not just an incidental fact. If this is ever
+    changed to multiple workers, a Redis pub/sub layer must be added first,
+    otherwise a message posted through one worker will only reach the
+    fraction of clients connected to that same worker.
     """
 
     def __init__(self) -> None:
