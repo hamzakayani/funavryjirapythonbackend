@@ -145,3 +145,36 @@ def test_websocket_rejects_nonexistent_project(client, db_session):
         with client.websocket_connect(f"/api/v1/ws/projects/NOPE10/chat?token={token}"):
             pass
     assert exc_info.value.code == 4404
+
+
+def test_unread_endpoint_and_mark_read_round_trip(client, db_session):
+    project = make_project(db_session, key="RD5")
+    author = make_user(db_session, name="Author5")
+    other = make_user(db_session, name="Other5")
+    add_member(db_session, project, author)
+    add_member(db_session, project, other)
+
+    client.post(
+        "/api/v1/projects/RD5/chat/messages",
+        json={"text": "hi", "mentions": []},
+        headers=auth_headers(author),
+    )
+
+    unread_res = client.get("/api/v1/projects/RD5/chat/unread", headers=auth_headers(other))
+    assert unread_res.status_code == 200
+    assert unread_res.json()["has_unread"] is True
+
+    read_res = client.post("/api/v1/projects/RD5/chat/read", headers=auth_headers(other))
+    assert read_res.status_code == 200
+
+    unread_after_res = client.get("/api/v1/projects/RD5/chat/unread", headers=auth_headers(other))
+    assert unread_after_res.json()["has_unread"] is False
+
+
+def test_unread_endpoint_requires_project_access(client, db_session):
+    make_project(db_session, key="RD6")
+    outsider = make_user(db_session, name="Outsider6")
+
+    res = client.get("/api/v1/projects/RD6/chat/unread", headers=auth_headers(outsider))
+
+    assert res.status_code == 403

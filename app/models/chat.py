@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -57,3 +57,21 @@ class ChatAttachment(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     message = relationship("ChatMessage", back_populates="attachments")
+
+
+class ChatRead(Base):
+    """Tracks how far into a project's chat each user has read, so the
+    sidebar can show an unread indicator and the chat page can clear it."""
+
+    __tablename__ = "chat_reads"
+    __table_args__ = (UniqueConstraint("project_id", "user_id", name="uq_chat_reads_project_user"),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    last_read_message_id = Column(Integer, ForeignKey("chat_messages.id"), nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    project = relationship("Project")
+    user = relationship("User")
+    last_read_message = relationship("ChatMessage")

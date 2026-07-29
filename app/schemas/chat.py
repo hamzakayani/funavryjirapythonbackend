@@ -61,3 +61,7 @@ class ChatProjectSummaryOut(BaseModel):
     key: str
     name: str
     last_message_at: Optional[UTCDateTime] = None
+
+
+class ChatUnreadOut(BaseModel):
+    has_unread: bool

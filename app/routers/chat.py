@@ -9,7 +9,13 @@ from app.core.security import decode_access_token
 from app.database import SessionLocal, get_db
 from app.models import User, UserStatus
 from app.repositories import ProjectMemberRepository, ProjectRepository, UserRepository
-from app.schemas import ChatAttachmentOut, ChatMessageOut, EditMessageRequest, SendMessageRequest
+from app.schemas import (
+    ChatAttachmentOut,
+    ChatMessageOut,
+    ChatUnreadOut,
+    EditMessageRequest,
+    SendMessageRequest,
+)
 from app.services.chat_service import ChatService
 
 router = APIRouter(tags=["chat"])
@@ -88,6 +94,25 @@ async def add_attachment(
         {"type": "message_updated", "message": message_out.model_dump(mode="json")},
     )
     return attachment_out
+
+
+@router.get("/projects/{project_key}/chat/unread", response_model=ChatUnreadOut)
+def get_chat_unread(
+    project_key: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return ChatService(db).get_unread_status(project_key, user)
+
+
+@router.post("/projects/{project_key}/chat/read")
+def mark_chat_read(
+    project_key: str,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    ChatService(db).mark_read(project_key, user)
+    return {"message": "Chat marked as read"}
 
 
 @router.get("/projects/{project_key}/chat/attachments/{attachment_id}/download")

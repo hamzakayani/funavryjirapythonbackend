@@ -8,12 +8,19 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.core.deps import can_manage_project, require_project_access
 from app.models import ChatAttachment, ChatMessage, ChatMessageMention
-from app.repositories import ChatRepository, IssueRepository, ProjectMemberRepository, ProjectRepository
+from app.repositories import (
+    ChatReadRepository,
+    ChatRepository,
+    IssueRepository,
+    ProjectMemberRepository,
+    ProjectRepository,
+)
 from app.schemas import (
     ChatAttachmentOut,
     ChatMentionOut,
     ChatMessageOut,
     ChatProjectSummaryOut,
+    ChatUnreadOut,
     MentionIn,
     UserMini,
 )
@@ -28,6 +35,7 @@ class ChatService:
     def __init__(self, db: Session):
         self.db = db
         self.chats = ChatRepository(db)
+        self.reads = ChatReadRepository(db)
         self.projects = ProjectRepository(db)
         self.members = ProjectMemberRepository(db)
         self.issues = IssueRepository(db)
@@ -162,6 +170,24 @@ class ChatService:
         self.chats.save()
         self.chats.refresh(message)
         return self._message_to_out(message, mask_deleted=True, project_key=project.key)
+
+    def mark_read(self, project_key: str, user) -> None:
+        project = self._get_project_by_key_or_404(project_key)
+        require_project_access(self.db, user, project.id)
+        latest_id = self.chats.latest_message_id(project.id)
+        self.reads.upsert(project.id, user.id, latest_id)
+        self.reads.save()
+
+    def get_unread_status(self, project_key: str, user) -> ChatUnreadOut:
+        project = self._get_project_by_key_or_404(project_key)
+        require_project_access(self.db, user, project.id)
+        latest_id = self.chats.latest_message_id(project.id)
+        if latest_id is None:
+            return ChatUnreadOut(has_unread=False)
+        read_state = self.reads.get(project.id, user.id)
+        last_read_id = read_state.last_read_message_id if read_state else None
+        has_unread = last_read_id is None or last_read_id < latest_id
+        return ChatUnreadOut(has_unread=has_unread)
 
     def get_message_out(self, project_key: str, message_id: int) -> ChatMessageOut:
         project = self._get_project_by_key_or_404(project_key)

@@ -193,3 +193,61 @@ def test_list_projects_for_admin_reports_last_message_at(db_session):
     summaries = service.list_projects_for_admin()
     summary = next(s for s in summaries if s.key == "SVC11")
     assert summary.last_message_at is not None
+
+
+def test_unread_status_false_when_no_messages(db_session):
+    project = make_project(db_session, key="RD1")
+    member = make_user(db_session, name="Member1")
+    add_member(db_session, project, member)
+
+    status = ChatService(db_session).get_unread_status(project.key, member)
+
+    assert status.has_unread is False
+
+
+def test_unread_status_true_for_message_never_read(db_session):
+    project = make_project(db_session, key="RD2")
+    author = make_user(db_session, name="Author2")
+    other = make_user(db_session, name="Other2")
+    add_member(db_session, project, author)
+    add_member(db_session, project, other)
+    service = ChatService(db_session)
+    service.create_message(project.key, author, "hello", [])
+
+    status = service.get_unread_status(project.key, other)
+
+    assert status.has_unread is True
+
+
+def test_mark_read_clears_unread_then_new_message_sets_it_again(db_session):
+    project = make_project(db_session, key="RD3")
+    author = make_user(db_session, name="Author3")
+    other = make_user(db_session, name="Other3")
+    add_member(db_session, project, author)
+    add_member(db_session, project, other)
+    service = ChatService(db_session)
+    service.create_message(project.key, author, "first", [])
+
+    service.mark_read(project.key, other)
+    assert service.get_unread_status(project.key, other).has_unread is False
+
+    service.create_message(project.key, author, "second", [])
+    assert service.get_unread_status(project.key, other).has_unread is True
+
+
+def test_mark_read_is_idempotent_and_scoped_per_user(db_session):
+    project = make_project(db_session, key="RD4")
+    author = make_user(db_session, name="Author4")
+    reader = make_user(db_session, name="Reader4")
+    lurker = make_user(db_session, name="Lurker4")
+    add_member(db_session, project, author)
+    add_member(db_session, project, reader)
+    add_member(db_session, project, lurker)
+    service = ChatService(db_session)
+    service.create_message(project.key, author, "hi", [])
+
+    service.mark_read(project.key, reader)
+    service.mark_read(project.key, reader)  # calling twice must not error or duplicate rows
+
+    assert service.get_unread_status(project.key, reader).has_unread is False
+    assert service.get_unread_status(project.key, lurker).has_unread is True

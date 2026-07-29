@@ -46,6 +46,15 @@ class ChatRepository:
         )
         return message.created_at if message else None
 
+    def latest_message_id(self, project_id: int) -> Optional[int]:
+        message = (
+            self.db.query(ChatMessage.id)
+            .filter(ChatMessage.project_id == project_id)
+            .order_by(ChatMessage.id.desc())
+            .first()
+        )
+        return message[0] if message else None
+
     def save(self) -> None:
         self.db.commit()
 
