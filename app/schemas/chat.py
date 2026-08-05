@@ -7,8 +7,8 @@ from app.schemas.types import UTCDateTime
 
 
 class MentionIn(BaseModel):
-    type: Literal["user", "issue"]
-    id: int
+    type: Literal["user", "issue", "everyone"]
+    id: int = 0
 
 
 class SendMessageRequest(BaseModel):

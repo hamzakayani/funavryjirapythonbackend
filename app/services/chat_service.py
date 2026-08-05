@@ -47,16 +47,29 @@ class ChatService:
             raise HTTPException(status_code=404, detail="Project not found")
         return project
 
-    def _resolve_valid_mentions(self, project_id: int, mentions: list[MentionIn]) -> list[ChatMessageMention]:
+    def _resolve_valid_mentions(
+        self, project_id: int, mentions: list[MentionIn], *, author_id: int
+    ) -> list[ChatMessageMention]:
         resolved: list[ChatMessageMention] = []
+        mentioned_user_ids: set[int] = set()
         for mention in mentions:
             if mention.type == "user":
-                if self.members.get(project_id, mention.id) is not None:
+                if self.members.get(project_id, mention.id) is not None and mention.id not in mentioned_user_ids:
+                    mentioned_user_ids.add(mention.id)
                     resolved.append(ChatMessageMention(mentioned_user_id=mention.id))
             elif mention.type == "issue":
                 issue = self.issues.get_by_id(mention.id, include_archived=True)
                 if issue and issue.project_id == project_id:
                     resolved.append(ChatMessageMention(mentioned_issue_id=mention.id))
+            elif mention.type == "everyone":
+                # Expands to an individual mention/notification for every current
+                # project member (except the author), reusing the @user pipeline
+                # rather than introducing a distinct notification type.
+                for member in self.members.list_for_project(project_id):
+                    if member.user_id == author_id or member.user_id in mentioned_user_ids:
+                        continue
+                    mentioned_user_ids.add(member.user_id)
+                    resolved.append(ChatMessageMention(mentioned_user_id=member.user_id))
         return resolved
 
     def _mention_to_out(self, mention: ChatMessageMention) -> ChatMentionOut:
@@ -117,7 +130,7 @@ class ChatService:
         require_project_access(self.db, user, project.id)
 
         message = ChatMessage(project_id=project.id, author_id=user.id, body=text)
-        message.mentions = self._resolve_valid_mentions(project.id, mentions)
+        message.mentions = self._resolve_valid_mentions(project.id, mentions, author_id=user.id)
         self.chats.create(message)
 
         for mention in message.mentions:
@@ -144,7 +157,7 @@ class ChatService:
         }
         message.body = text
         message.is_edited = True
-        message.mentions = self._resolve_valid_mentions(project.id, mentions)
+        message.mentions = self._resolve_valid_mentions(project.id, mentions, author_id=user.id)
 
         for mention in message.mentions:
             if mention.mentioned_user_id and mention.mentioned_user_id not in previously_mentioned_user_ids:

@@ -58,6 +58,32 @@ def test_create_message_resolves_valid_user_mention_and_notifies(db_session):
     assert notifications[0].type == "chat_mention"
 
 
+def test_create_message_everyone_mention_notifies_all_members_except_author(db_session):
+    project = make_project(db_session, key="SVC2E")
+    author = make_user(db_session, name="Author2E")
+    member_a = make_user(db_session, name="MemberA")
+    member_b = make_user(db_session, name="MemberB")
+    add_member(db_session, project, author)
+    add_member(db_session, project, member_a)
+    add_member(db_session, project, member_b)
+
+    out = ChatService(db_session).create_message(
+        project.key, author, "hi @[everyone]", [MentionIn(type="everyone")]
+    )
+
+    assert {m.id for m in out.mentions} == {member_a.id, member_b.id}
+    assert all(m.type == "user" for m in out.mentions)
+
+    from app.services import NotificationService
+
+    notifications_a = NotificationService(db_session).list_for_user(member_a)
+    notifications_b = NotificationService(db_session).list_for_user(member_b)
+    notifications_author = NotificationService(db_session).list_for_user(author)
+    assert len(notifications_a) == 1 and notifications_a[0].type == "chat_mention"
+    assert len(notifications_b) == 1 and notifications_b[0].type == "chat_mention"
+    assert len(notifications_author) == 0
+
+
 def test_create_message_drops_mention_for_non_member(db_session):
     project = make_project(db_session, key="SVC3")
     author = make_user(db_session, name="Author3")
