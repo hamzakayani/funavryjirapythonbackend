@@ -27,6 +27,8 @@ class NotificationService:
             else None,
             issue_id=notification.issue_id,
             issue_key=issue.issue_key if issue else None,
+            issue_type=issue.issue_type if issue else None,
+            status=issue.status if issue else None,
             project_key=project.key if project else None,
             is_read=notification.is_read,
             created_at=notification.created_at,

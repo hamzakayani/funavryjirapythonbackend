@@ -14,6 +14,8 @@ class NotificationOut(BaseModel):
     actor: Optional[UserMini] = None
     issue_id: Optional[int] = None
     issue_key: Optional[str] = None
+    issue_type: Optional[str] = None
+    status: Optional[str] = None
     project_key: Optional[str] = None
     is_read: bool
     created_at: UTCDateTime
